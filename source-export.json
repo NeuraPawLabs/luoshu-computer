@@ -1,6 +1,6 @@
 {
   "format": "luoshu-computer-source-v1",
-  "version": "0.1.6",
+  "version": "0.1.0",
   "license": "MIT",
   "workspaces": [
     "packages/protocol",
@@ -9,7 +9,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/NeuraPawLabs/luoshu",
-    "commit": "bbc74023159d24f09a891e17e43adf092b701113",
+    "commit": "ec1b63f0f650ebb067a9a4486d9c5ae7eb2f9252",
     "dirty": false
   },
   "joint_tests_remaining_in_main": [
@@ -231,7 +231,7 @@
     },
     {
       "path": "apps/worker/package.json",
-      "sha256": "ef7035ca06b6f9417718c441cb516b241ffb4a5636dc5080cc5aaf21c26b2652"
+      "sha256": "eeaf18ed2190b463a13bebc08ff4c64067b1ba5652457f8175bcde3660b55cd6"
     },
     {
       "path": "apps/worker/tsconfig.json",
@@ -431,7 +431,7 @@
     },
     {
       "path": "apps/worker/src/computer/version.ts",
-      "sha256": "060ca126930c2003e79c6957c02128c51de17ab93f07ea4573fb94daec33871f"
+      "sha256": "eb5cad4a7d640d9d95c3269ac3838511704fdad45ad3112868f92fae34e64b43"
     },
     {
       "path": "apps/worker/src/computer-main.ts",
@@ -611,7 +611,7 @@
     },
     {
       "path": "apps/worker/tests/computer-update.test.ts",
-      "sha256": "b01861c0a7afb89c79ab98b919eedaffeeb4abaa6937dab860f05f566c59cea8"
+      "sha256": "415e3e74b95492a11503032517ba531bc2792984ddcda8534e49bbb6d9a07c1e"
     },
     {
       "path": "apps/worker/tests/config-controller.test.ts",
@@ -975,19 +975,19 @@
     },
     {
       "path": "scripts/templates/computer-repository/COMPATIBILITY.md",
-      "sha256": "a3911212b4f2f8f38bb6fa825b469121d4f5b4db8d66b1e95e76eb0ebb54f3cb"
+      "sha256": "7ef2f8a1ce46386798afd90b95c1308e5e393dfb313abea35b5fc3ec0f64f237"
     },
     {
       "path": "COMPATIBILITY.md",
-      "sha256": "a3911212b4f2f8f38bb6fa825b469121d4f5b4db8d66b1e95e76eb0ebb54f3cb"
+      "sha256": "7ef2f8a1ce46386798afd90b95c1308e5e393dfb313abea35b5fc3ec0f64f237"
     },
     {
       "path": "scripts/templates/computer-repository/RELEASE.md",
-      "sha256": "c9887b900cd3edcdb0757c67e34b169f2e4c7818108f1a7bac8878df2bdef59b"
+      "sha256": "ae52790a1009351323ab3537de4bd12bbc1439bac6c737f3b1d658238cdf5309"
     },
     {
       "path": "RELEASE.md",
-      "sha256": "c9887b900cd3edcdb0757c67e34b169f2e4c7818108f1a7bac8878df2bdef59b"
+      "sha256": "ae52790a1009351323ab3537de4bd12bbc1439bac6c737f3b1d658238cdf5309"
     },
     {
       "path": "scripts/templates/computer-repository/.github/workflows/ci.yml",
@@ -999,11 +999,11 @@
     },
     {
       "path": "scripts/templates/computer-repository/.github/workflows/release.yml",
-      "sha256": "c4708fe46c2ec40d7da3f5abdb84466d994c9bb0f0df424fbd551695a5f1ac27"
+      "sha256": "5dd265213f3c7035666e416b7fc5eb729f7dec901372660defd69faaae1d0cab"
     },
     {
       "path": ".github/workflows/release.yml",
-      "sha256": "c4708fe46c2ec40d7da3f5abdb84466d994c9bb0f0df424fbd551695a5f1ac27"
+      "sha256": "5dd265213f3c7035666e416b7fc5eb729f7dec901372660defd69faaae1d0cab"
     },
     {
       "path": "LICENSE",

@@ -1,9 +1,9 @@
 # Release procedure
 
-The first independent version is 0.1.6 with protocol 8. Unsigned releases are explicitly marked **prerelease** and never advertised as automatic-update sources.
+The first independent version is 0.1.0 with protocol 8. Unsigned releases are explicitly marked **prerelease** and never advertised as automatic-update sources.
 
 1. Update `apps/worker/package.json`, `apps/worker/src/computer/version.ts`, the independent root package version, lockfile and compatibility documentation together. Run `npm ci`, `npm run build`, `npm run lint`, `npm test`, `npm run package` and `npm run test:package`.
-2. Commit reviewed sources on `main` and tag the clean commit `v<package-version>`, such as `v0.1.6`. Never reassign an already published tag or replace bytes under its immutable archive path.
+2. Commit reviewed sources on `main` and tag the clean commit `v<package-version>`, such as `v0.1.0`. Never reassign an already published tag or replace bytes under its immutable archive path.
 3. Run `npm run release:prepare`. The tool checks the tag, clean Git worktree and exact tracked bytes, license and version, then forces a new build/package to bind the binary to those sources. It validates the resulting manifest/archive and creates a tracked-source snapshot, release files, `SHA256SUMS`, `release.json` and human release notes under `dist/release-bundle/`.
 4. If an existing Ed25519 release key is available, use `npm run release:prepare -- --key /secure/path/private.pem`. Keep the key outside the source tree and output directory. Store/distribute its public key through a separately trusted channel. Do not generate or upload private keys through CI or a GitHub Release.
 5. Upload only the explicit artifact list in `release.json`; retain exact commit, protocol, digests and whether the manifest is signed. Use GitHub's prerelease flag for unsigned content. The manual workflow prepares and publishes only unsigned prereleases with the repository token; it never handles a release signing secret.

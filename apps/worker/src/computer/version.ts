@@ -1,1 +1,1 @@
-export const COMPUTER_VERSION = '0.1.6';
+export const COMPUTER_VERSION = '0.1.0';

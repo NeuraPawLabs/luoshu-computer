@@ -2,7 +2,9 @@
 
 | Computer | Wire protocol | Packaged platform | Build runtime |
 | --- | --- | --- | --- |
-| 0.1.6 | 8 | Linux x64, systemd user services | Node.js 22.17.1 |
+| 0.1.0 | 8 | Linux x64, systemd user services | Node.js 22.17.1 |
+
+The independent public version sequence starts at 0.1.0. The earlier 0.1.6 repository import was release preparation; it had no published version tag or Release when the starting version was corrected. Monorepo device versions belong to a separate preparation sequence.
 
 Computer version and protocol version are separate. Core and Computer currently require the same exact wire version. A package version bump does not establish backward compatibility; automatic updates reject a manifest with a different protocol before downloading the archive.
 

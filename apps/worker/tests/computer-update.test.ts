@@ -38,6 +38,18 @@ test('worker package, lockfile and reported computer versions agree', async () =
   expect(lock.packages['apps/worker'].version).toBe(workerPackage.version);
 });
 
+test('renumbering the independent release preserves legacy installation state and rollback',async()=>{
+ const f=await fixture('0.1.6','0.1.0');
+ try{
+  await mkdir(f.paths.state);await writeFile(join(f.paths.state,'identity.json'),'keep local identity');
+  await writeFile(join(f.paths.current,'legacy.txt'),'keep old build');
+  expect(await applyComputerUpdate({paths:f.paths,manifest:f.manifest,download:async()=>f.bytes,activeAttemptIds:()=>[]})).toEqual({status:'updated',from:'0.1.6',to:'0.1.0'});
+  expect(await readFile(join(f.paths.state,'identity.json'),'utf8')).toBe('keep local identity');
+  expect(await readFile(join(f.paths.versions,'0.1.6','legacy.txt'),'utf8')).toBe('keep old build');
+  expect(await readFile(join(f.paths.root,'rollback-version'),'utf8')).toBe(join(f.paths.versions,'0.1.6'));
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
+
 test('downloads, verifies, and atomically switches an idle client', async () => {
   const fixtureData = await fixture();
   try {
