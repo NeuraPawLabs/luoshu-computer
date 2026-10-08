@@ -1,0 +1,61 @@
+{
+  "name": "@luoshu/worker",
+  "version": "0.1.6",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./environment": {
+      "types": "./dist/environment.d.ts",
+      "import": "./dist/environment.js"
+    },
+    "./state": {
+      "types": "./dist/state.d.ts",
+      "import": "./dist/state.js"
+    },
+    "./executor": {
+      "types": "./dist/executor.d.ts",
+      "import": "./dist/executor.js"
+    },
+    "./codex": {
+      "types": "./dist/codex.d.ts",
+      "import": "./dist/codex.js"
+    }
+  },
+  "bin": {
+    "luoshu-worker": "dist/main.js",
+    "luoshu-computer": "dist/computer-main.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "tsc -b --pretty false",
+    "start": "node dist/main.js",
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@luoshu/config": "0.1.0",
+    "@luoshu/protocol": "0.1.0",
+    "better-sqlite3": "13.0.3",
+    "node-pty": "^1.1.0",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "26.5.1",
+    "@types/ws": "8.18.1",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2"
+  },
+  "references": [
+    {
+      "path": "../../packages/protocol"
+    },
+    {
+      "path": "../../packages/config"
+    }
+  ],
+  "license": "MIT"
+}

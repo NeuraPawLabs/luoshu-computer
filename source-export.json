@@ -1,0 +1,1017 @@
+{
+  "format": "luoshu-computer-source-v1",
+  "version": "0.1.6",
+  "license": "MIT",
+  "workspaces": [
+    "packages/protocol",
+    "packages/config",
+    "apps/worker"
+  ],
+  "upstream": {
+    "repository": "https://github.com/NeuraPawLabs/luoshu",
+    "commit": "bbc74023159d24f09a891e17e43adf092b701113",
+    "dirty": false
+  },
+  "joint_tests_remaining_in_main": [
+    "apps/worker/tests/assistant-engine-runtime.test.ts",
+    "apps/worker/tests/native-capacity-integration.test.ts"
+  ],
+  "files": [
+    {
+      "path": "packages/protocol/package.json",
+      "sha256": "d83f982e493c5307127dda465c0b9adc649bc0d342f397bdca61099fd9fff761"
+    },
+    {
+      "path": "packages/protocol/tsconfig.json",
+      "sha256": "e42a74980d52041a8b848868d51b0cdd30a147030401785e85f335bef43d8957"
+    },
+    {
+      "path": "packages/protocol/LICENSE",
+      "sha256": "08c1afe54fd6b6411082cacbda26c5c64056ed6070a81a2c3eb02699c187185a"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-checks.ts",
+      "sha256": "df6307390787bf23bee2df13d83c818cb5f8b4a0b755666a622715616260a66a"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-codebases.ts",
+      "sha256": "02040d54ce1288ad0011a9db00db8a0c20cf43601148c788875c17626836c2cc"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-events.ts",
+      "sha256": "50826684ead60fb8d0d2e579a70b6439607bdf2a8ad109b47f4c5fa3019c1b7e"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-evidence.ts",
+      "sha256": "c0b530c58d007bb5ac8e0b88a21d4f068987a5c916e96ea6470e7943dcdbda15"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-files-hash.ts",
+      "sha256": "c6d7a74deba2df19886e773dc2384b2ac2d7912eac85b96770b9597ad54ae37b"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-files.ts",
+      "sha256": "e2c6f189d30b084581c03099cd998e0970ddd2e59aaac85d314e76771157c3ff"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-native-tools.ts",
+      "sha256": "ec0184770a34da948de9d323690f7e8e187a567c6482d9030dd61c25bfc5ef09"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-session.ts",
+      "sha256": "69837c77b09e8cc48fbde1f856f3ac14cbd981c13462d4b79100b0e64868bfa0"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-tasks.ts",
+      "sha256": "6488d3cb61dcde91be5dd64552501cbaa3fc216be39cd3f48117753ef97a08fb"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-titles.ts",
+      "sha256": "cae5617fbafadf8bc2980ec4e0475199feb855b5f86db025d2367bf3f9577ff7"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine-wire.ts",
+      "sha256": "9acf715797f9e61cf72ae35edb6cb066ae49ebc206dac5b8af8f423b000a5b51"
+    },
+    {
+      "path": "packages/protocol/src/assistant-engine.ts",
+      "sha256": "c294f582041e3ea65543107d4e54a0dbd002c5698655058e28682f7c7b075718"
+    },
+    {
+      "path": "packages/protocol/src/computer-release.ts",
+      "sha256": "7153f7b582df2e8889fae5fb116982de0d78d035df040f4fca45d372b5a494f5"
+    },
+    {
+      "path": "packages/protocol/src/development.ts",
+      "sha256": "2a3549ec49379f092c96882453f610d94433fb15d892b6087102ce39e5c9a063"
+    },
+    {
+      "path": "packages/protocol/src/execution.ts",
+      "sha256": "d25404f0be6b6b4413e3813e895ecbd68e676da3824116c73a4172019e9d8ac3"
+    },
+    {
+      "path": "packages/protocol/src/git.ts",
+      "sha256": "f105b5b23ac6e0b659248b23835825f4884e67c9536e03f2b0725d47f3702c7d"
+    },
+    {
+      "path": "packages/protocol/src/index.ts",
+      "sha256": "02702e1bd092d36fcc240e73cb1c48da1c5c2952cc0f126a4e62a601b45fbcfa"
+    },
+    {
+      "path": "packages/protocol/src/maintenance.ts",
+      "sha256": "d577c7f8c0d69857d5252363d14f3c9d2064cc3fdf1672685528bd1544df0efa"
+    },
+    {
+      "path": "packages/protocol/src/project-knowledge.ts",
+      "sha256": "5cf305518e02e74e9fbc43de1aa3fc19c1913bfae81a5006e686648973c76a6d"
+    },
+    {
+      "path": "packages/protocol/src/recovery-hash.ts",
+      "sha256": "6ca2e1222fe55749cf12add1a560c487db0496bdd35459c5639f3696b36a9668"
+    },
+    {
+      "path": "packages/protocol/src/recovery.ts",
+      "sha256": "3939f370bd02d17d0b061dc4ab805f0837e8d6c08a5a76057e1294b04cfe4b67"
+    },
+    {
+      "path": "packages/protocol/src/task-files.ts",
+      "sha256": "027a20a5d73491a5fbf13f89f8c45623de191125bf90e7bbe8134818cdaed0f9"
+    },
+    {
+      "path": "packages/protocol/src/wire-base.ts",
+      "sha256": "c037e062c85c78391fe77f66668afe61c95a80047bd60ba7f7ff4a2f8d0154f2"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-checks.test.ts",
+      "sha256": "3e5937a9dfcd7245292513674be7b1e9f150ae5e478fafc8b9d91eb44374e976"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-codebases.test.ts",
+      "sha256": "2094d17726b7d4a80c0a71472bdc4b9ef04bbe2e21c3d0379cef654fb0c6d058"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-config.test.ts",
+      "sha256": "3f33adfcdbca6565f2f913deb5c4b6b391872eff5f44873a8ebdcc6d1e08cd07"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-events.test.ts",
+      "sha256": "dc658d2816f751d79fbc7e83257675b052404223da35626afab491e28a6caafa"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-exports.test.ts",
+      "sha256": "d5dc793981e22632b747f9a7c32509191943ad0bd160307d85a7fbcf7f30777c"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-files.test.ts",
+      "sha256": "93ccc6b566d58db6d6742ed104b683f9683369d940d6589a165304ab61f28950"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-native-tools.test.ts",
+      "sha256": "4f7e253e26ee23527a92b7cb62cc802abdaf138b5d8d0753b1590c8e7163ee30"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-session.test.ts",
+      "sha256": "e64b50c6e8d888d68b5ced0052d1d001d1a3887e0594208df91e1fa4af8e5096"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-tasks.test.ts",
+      "sha256": "1f62cda5e9d59e988a6d262276037db71f6f97050dca178d68202d549af47470"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-titles.test.ts",
+      "sha256": "5362ddfc17397e21c10df06c02058658bbcf960645e6c18b752cc5676121680f"
+    },
+    {
+      "path": "packages/protocol/tests/assistant-engine-wire.test.ts",
+      "sha256": "10cb9c31878fbd9b8e3083ebd89bfaa76eb8fd0de46d8e6b926582fae1a879d9"
+    },
+    {
+      "path": "packages/protocol/tests/computer-release.test.ts",
+      "sha256": "8f4235d4d655582eede1c760ad43ff2433be3331f6d47d2f18f42e5be7ebd041"
+    },
+    {
+      "path": "packages/protocol/tests/development.test.ts",
+      "sha256": "a4b2ea48b5d45416487d0ac3d0c43f4905d94a8c2bcfaa86814a9cb0d0af0651"
+    },
+    {
+      "path": "packages/protocol/tests/fixtures/assistant-engine.ts",
+      "sha256": "6e0006193e738880beb86b22799836b7c5ca80314cc5229cfd594a5000bcd505"
+    },
+    {
+      "path": "packages/protocol/tests/maintenance.test.ts",
+      "sha256": "ea97928f3380de5eddd6bfbb898fe751154046a7795b8dcae5d52c41e1c8c821"
+    },
+    {
+      "path": "packages/protocol/tests/project-knowledge.test.ts",
+      "sha256": "45dd08728a8b50e3d86f7429e30e6e44d92fb65e362885d0ab043f405922da0e"
+    },
+    {
+      "path": "packages/protocol/tests/protocol.test.ts",
+      "sha256": "f3307d73bf4a0fe0d5297a2b3a468aea5700ca92fbeac70218b18ebc80d97b50"
+    },
+    {
+      "path": "packages/protocol/tests/recovery-boundaries.test.ts",
+      "sha256": "16ec56054edddd82367c5cace2ebd63c645a2495138fefed4794f5dd203df0f2"
+    },
+    {
+      "path": "packages/protocol/tests/recovery.test.ts",
+      "sha256": "f158d7c98d2fdba9bcdcb7ecf872242fa7ada468c454e3b682bff04ec7009d20"
+    },
+    {
+      "path": "packages/config/package.json",
+      "sha256": "0aac1b5b7d37b72557829c44e9458209af448f5d7da861cdbada2a51d7854551"
+    },
+    {
+      "path": "packages/config/tsconfig.json",
+      "sha256": "d21051a031bce08ff80ea010b21ce212952a6de981c1a5d33e722a7fb0d34bb8"
+    },
+    {
+      "path": "packages/config/LICENSE",
+      "sha256": "08c1afe54fd6b6411082cacbda26c5c64056ed6070a81a2c3eb02699c187185a"
+    },
+    {
+      "path": "packages/config/src/budgets.ts",
+      "sha256": "fb43c8a833370993053258d078c0c89581b4ffa5db5645b582c70d5c97888aaf"
+    },
+    {
+      "path": "packages/config/src/computer-release-mirror.ts",
+      "sha256": "6c5c0a0bd3d12a6ac24cee906662f7102766f5d7631f86f537204baf43632811"
+    },
+    {
+      "path": "packages/config/src/reasoning-capabilities.ts",
+      "sha256": "73f631e32b9b73dfcdfb02f25908765cf2257840e91b446780d93d3b54f3f6a9"
+    },
+    {
+      "path": "packages/config/src/security.ts",
+      "sha256": "6601591133b0c879d92497bf96326f7431e5540c0c407b8075ce71bdcc19c662"
+    },
+    {
+      "path": "packages/config/tests/computer-release-mirror.test.ts",
+      "sha256": "f389774dba3451c387cd4d3b315a5b455179119edde028046bf8af9c2223d771"
+    },
+    {
+      "path": "apps/worker/package.json",
+      "sha256": "ef7035ca06b6f9417718c441cb516b241ffb4a5636dc5080cc5aaf21c26b2652"
+    },
+    {
+      "path": "apps/worker/tsconfig.json",
+      "sha256": "5a6c321309c0c156f90383ca160b4270a770fa80beb2060f6b43cf77840e8e6a"
+    },
+    {
+      "path": "apps/worker/LICENSE",
+      "sha256": "08c1afe54fd6b6411082cacbda26c5c64056ed6070a81a2c3eb02699c187185a"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-events.ts",
+      "sha256": "a2b27abb56f2da8ea971f8491d7a59a5a81a4db8fa450956dbf49e66dd1945cc"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-interactions.ts",
+      "sha256": "55affc99e9fc312bbb07c89b47a5fb2eb9082618d8afeac15ef6aa95df718aba"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-knowledge-tools.ts",
+      "sha256": "9404eee2239eb02b199d3b79e56623d3dc1f29603986e546bc3e063b07730aac"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-policy.ts",
+      "sha256": "f86cd3d42ac2e64f6660f2a69ab2e5e242b787ad7dcaa310fbbc1fefae7b9fab"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-pool.ts",
+      "sha256": "ef031ae667abea23132139c5fc923de27df80fc893765b2bb91bfc3256a1f7cd"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-rpc.ts",
+      "sha256": "7f6d19f770119d99c3562361ee3e91636621679428de9ea1f728b0fddf5e4923"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-session.ts",
+      "sha256": "29f34d6b93f9e47a9f0f5e70b20ea989ef5f2b3c952ec9e3d1a2aff2caf4bbb1"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-task-tools.ts",
+      "sha256": "2b27ee6debd14f408633c7aaa247c86a80b62a96ebe7c9557b1b89b5fc4b599e"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/codex-title-tools.ts",
+      "sha256": "2bdb82e917b41a4912e90de52042bfc3b6e07d77221f3f034009179cbb03f630"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/git-guardian.ts",
+      "sha256": "128592815237c4e48f3f971ffd0965b7d3d103d2246c01c7b8e0d58393c5b3f9"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-check-snapshot.ts",
+      "sha256": "95b07a8c5ec368ec1e246b3713e17da1cf8e3eb2878d0b85ca2979f9e64a0164"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-check-window.ts",
+      "sha256": "bbdb550abaabd61acb9a2c3e7e76c867fa5df5a7d6603f79b1b9a8c02e8a68e7"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-codebase-commit.ts",
+      "sha256": "f68d395cdd13e50886f80daeda7f281eb92754f6c210444424c81c93d7805fc5"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-codebase-workspace-owners.ts",
+      "sha256": "3d1a834e94b018c7682158dc8eaa0e9247fde0c7ad46d280f10f974b15d7a7e5"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-codebases.ts",
+      "sha256": "6564f4e589bdbc6ccbd0170b513cab8e2d908b144c5d106e01c3c9e16a360ba8"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-command-receipt.ts",
+      "sha256": "9dea39ed61c45812f22c404d7525174beab3a75e1e08cf1b44647c5645d59f10"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-executable.ts",
+      "sha256": "3fde4766825edf8d7520ad9d46d42cb13fc9dfefac76df8c637f11810a97c98c"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-files.ts",
+      "sha256": "68de0eea999deed96ddc2794b03802ccb27c0c6ab30cdba7ecfcf68626b74dda"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-guardian.ts",
+      "sha256": "730617d7d080a59bcaca0321ddad015a364bbe909ad97785357832720653dd67"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-index-publication.ts",
+      "sha256": "9be640da1e8ab04bb3c1fa0be3d9dd93127314565a1c340dd81965c7bf3637f6"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-knowledge-sources.ts",
+      "sha256": "494059bd92884549ebbbf895c17b3f1259db912251e8203811e377860c738aa1"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-permissions.ts",
+      "sha256": "4699597fec1dc5a4bc27bfc5b221dd5c8fd3f5df347b79a15dca69368b51e15b"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-systemd-launch.ts",
+      "sha256": "071cd8cf586c7068a63df1195dcbd30f8138c77cca748115820587c025a109bf"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-systemd-supervisor.ts",
+      "sha256": "0d38b66aca6c28b95e4e837de56730d07998bef875d9399d5e3c7f38e3b2d54e"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-systemd-target.ts",
+      "sha256": "516243a354a16dceb028eeb7920709500bc1b6c113030faeae73972eb8b7dd6a"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-systemd-unit.ts",
+      "sha256": "7ea82a6476a84b9aead8bf0d90426e92f16388dcaa72d598a352eb9760ab1741"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-unit-registry.ts",
+      "sha256": "9d04ca19507a05e4806e03fddd7c506156cf948f6a5177ace64b732e46af3878"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/native-workspace-roots.ts",
+      "sha256": "b0c558776ad83dce043d23e0c280d2225a0a50998dd4dd4e73fd7d36c25c9118"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/runtime.ts",
+      "sha256": "98951e516f472dcc51b925a12d62c86c0507b51853ad1bbbc957e5d0395cdea5"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/service.ts",
+      "sha256": "817aaabd270e701038a3d77de6e54616a3b7725e005302b4aa7e1f6c0eb75c07"
+    },
+    {
+      "path": "apps/worker/src/agent-engines/session-store.ts",
+      "sha256": "33f7dbcfcb0bfd9b68bc26286e78528c95d499230c66f32b6b2fd26d9f0ae294"
+    },
+    {
+      "path": "apps/worker/src/checkpoints.ts",
+      "sha256": "47d91f05c2c911f2379067a6f5b25f70332f5fc612192aec0ce2453c89b1861a"
+    },
+    {
+      "path": "apps/worker/src/client.ts",
+      "sha256": "f8dd2d59ce8d939fe3a69643923dd7ec61dd2e0cdf7e2c3527b98a738ba186d2"
+    },
+    {
+      "path": "apps/worker/src/codebase-workspace.ts",
+      "sha256": "7db03daf51bdc2004fbb35557c2232f6e7b8b1b6bf0ae7edda62915f69844e86"
+    },
+    {
+      "path": "apps/worker/src/codex-permissions.ts",
+      "sha256": "09e5b6d90ff7bf44f0e18c1e01bc23959b82e84c54898c9a7dba40e0d1aac1fe"
+    },
+    {
+      "path": "apps/worker/src/codex-sandbox.ts",
+      "sha256": "62c2bb9b941794a69f028e68d42d0351b526de879f1c83a74c49ede7b2c5b10c"
+    },
+    {
+      "path": "apps/worker/src/codex.ts",
+      "sha256": "4422e66ee6405797ad31b509c06478d77b1498b4f459e35c44a8c317677b3396"
+    },
+    {
+      "path": "apps/worker/src/computer/cli.ts",
+      "sha256": "3de63677291fbf16856597b0784c89a9df8943f0d02019674f20eda633ea25c5"
+    },
+    {
+      "path": "apps/worker/src/computer/daemon.ts",
+      "sha256": "5f7b9c4a8a7f0424da8a3903f28b038ac00482cfacb638f949b117c16d037987"
+    },
+    {
+      "path": "apps/worker/src/computer/diagnostics.ts",
+      "sha256": "cf894ffdd2fd395c09ab4db3aae82e1014c1f9511e773c3429c4d271becea50b"
+    },
+    {
+      "path": "apps/worker/src/computer/launcher.ts",
+      "sha256": "687b463ef1005ca615ab36b07fc62e261dfd8d9c36a458a4742e54491f93a5c3"
+    },
+    {
+      "path": "apps/worker/src/computer/paths.ts",
+      "sha256": "2423901ad04b78e7d1c8181b5f4c300f66b5ac27b75366cd0a8eadcb18bb34b9"
+    },
+    {
+      "path": "apps/worker/src/computer/releases.ts",
+      "sha256": "bdd1b1d01f21f5d194093c37f683ded817bc3139e73a674bf17c19181666da6b"
+    },
+    {
+      "path": "apps/worker/src/computer/service.ts",
+      "sha256": "114d6a0e233be94598485fc0449a778ce02bea773554ebd92210d43fe2d53682"
+    },
+    {
+      "path": "apps/worker/src/computer/setup.ts",
+      "sha256": "02df276184bf904c6df5c2a75816875e6747048b4f04046e96b40628940b133e"
+    },
+    {
+      "path": "apps/worker/src/computer/update-activity.ts",
+      "sha256": "37a4d5aebbb9d803e77182e46c1aefe05adda3c7db8d133747125defa3e64fe2"
+    },
+    {
+      "path": "apps/worker/src/computer/update.ts",
+      "sha256": "cdedc2922826f1de75dbd55c89158a8d07ff6c994556ca2e9a47e31e3c39c0ab"
+    },
+    {
+      "path": "apps/worker/src/computer/version.ts",
+      "sha256": "060ca126930c2003e79c6957c02128c51de17ab93f07ea4573fb94daec33871f"
+    },
+    {
+      "path": "apps/worker/src/computer-main.ts",
+      "sha256": "617c1852d9fa0b99c7dd148c7cb0c4d0d1d97f30db7c5f11214daeca87b3336b"
+    },
+    {
+      "path": "apps/worker/src/config-controller.ts",
+      "sha256": "bdfd2ab12c8a4a9b395d8d566fbca2dc3aeb077bcf7a41b391cccb22435e5d39"
+    },
+    {
+      "path": "apps/worker/src/config-lock.ts",
+      "sha256": "0a43945975195c4b56db2d672a15858838accde5526133ede3cfe90feab8775c"
+    },
+    {
+      "path": "apps/worker/src/config-maintenance.ts",
+      "sha256": "bb9cd164eb2adb35be839f0b7e91d28b11773e928a82b8f93ce1833adb15982d"
+    },
+    {
+      "path": "apps/worker/src/delivery.ts",
+      "sha256": "8af3578024a8dd485151c44bbea251310ba7bd09f7c3d92967b895c152fb1c6a"
+    },
+    {
+      "path": "apps/worker/src/development/agent-sessions.ts",
+      "sha256": "12f2fb95a6be0583d70a45fbf55141f675692bd686701866a6b05497a4d5da3e"
+    },
+    {
+      "path": "apps/worker/src/development/files.ts",
+      "sha256": "ea70a6456e7277e3683d01e01ba71066e68a307b9650494b067e313c5049148b"
+    },
+    {
+      "path": "apps/worker/src/development/output-buffer.ts",
+      "sha256": "2370002a4ec447fd51a456b8927a00885b0e200980b52ec34f39ba439d0f5253"
+    },
+    {
+      "path": "apps/worker/src/development/root-policy.ts",
+      "sha256": "6d56edaa6423056b73442a8a626a01f90bc04cd98b9950c506b300796d418487"
+    },
+    {
+      "path": "apps/worker/src/development/runtime-roots.ts",
+      "sha256": "2254e70f8c87f8f548eb842dac1b213d548941b1067f4d0f9a09f028fb1310e5"
+    },
+    {
+      "path": "apps/worker/src/development/service.ts",
+      "sha256": "9d034677c9d9c127d01b70726ad596cbcf376bd80602e860239e1ad6d30d3742"
+    },
+    {
+      "path": "apps/worker/src/development/sessions.ts",
+      "sha256": "07af85921a16d12b6b7ef123843025e538c34f753f329014b0e74ea45ab9ced0"
+    },
+    {
+      "path": "apps/worker/src/environment.ts",
+      "sha256": "52cae71a0fb8a3844e78f6fc36e3b2de7f0f7cbbbde11fca1556fe43c0b15e87"
+    },
+    {
+      "path": "apps/worker/src/executor.ts",
+      "sha256": "f63998e344562efd76d9dc1eee39c3b3aa62488e22b770a52f265a9eab5cfe2f"
+    },
+    {
+      "path": "apps/worker/src/files.ts",
+      "sha256": "a65984f0bc5b1527658368cb5dfeef830c81c78636ed9f8ae5ee8f25c6a3cc2b"
+    },
+    {
+      "path": "apps/worker/src/git-command.ts",
+      "sha256": "52ffd33f03cf0176b46a4ef9a956acb3212d994076756b3e0cd23c24108ebc8a"
+    },
+    {
+      "path": "apps/worker/src/git-credentials.ts",
+      "sha256": "c32bdeb6612b81ea495b1abb35f7e7ca8ab4216a855887b8bee9796a594089e8"
+    },
+    {
+      "path": "apps/worker/src/git-helper.ts",
+      "sha256": "755815b67f4c7a62b8811d40fc7c222b1d5f0914441b176c403f549e5a43ee10"
+    },
+    {
+      "path": "apps/worker/src/git-ssh-main.ts",
+      "sha256": "94729b56a9fb6ef1a9bba8f391fd40ace14b73bca02c9632209db69fc63c751b"
+    },
+    {
+      "path": "apps/worker/src/git-ssh-session.ts",
+      "sha256": "569e60e12c5a2381bf920bb2ef0cb87b81e5e6365291799c55adf38a0ee09347"
+    },
+    {
+      "path": "apps/worker/src/git-wire.ts",
+      "sha256": "86ab41e551e65eead448e6e1b8cdb7b0ff7149b2a92308c2ad39bf435ac9a542"
+    },
+    {
+      "path": "apps/worker/src/main.ts",
+      "sha256": "d4ade54cadbcd0d18af2a8ddd9ef076708c99b963df6435d79ecab06ff75f620"
+    },
+    {
+      "path": "apps/worker/src/maintenance/git.ts",
+      "sha256": "ed34013215e4d6a7dbcac47c33553861939f2783a1216d37749c2455f5ddd1ba"
+    },
+    {
+      "path": "apps/worker/src/opencode.ts",
+      "sha256": "8acf72f1b0b346008ee34f90184f4da98b506fdc8ef5fb7d41bc863567249da7"
+    },
+    {
+      "path": "apps/worker/src/output-zip.ts",
+      "sha256": "282510ac1752870721d3c646dec9dc4877a8957dcbc12df8ec9f49c15a3a85b1"
+    },
+    {
+      "path": "apps/worker/src/state.ts",
+      "sha256": "c2ff6d6f7d61ef066f9250de51a26fb02c18de9bcb184501a8e882d4dc08471f"
+    },
+    {
+      "path": "apps/worker/tests/assistant-engine-service.test.ts",
+      "sha256": "a795b9f215f69cfcd86322155a6198709d83ecf8c33bb497c1135105c8f8e5d5"
+    },
+    {
+      "path": "apps/worker/tests/codex-events.test.ts",
+      "sha256": "d36f7f53b0c02c9932840c072761e75eb20e9a236386ab1bd4420c0278aaa745"
+    },
+    {
+      "path": "apps/worker/tests/codex-interactions.test.ts",
+      "sha256": "5861331d610d8093f35c164047f7c7bbb8a1e5eb719c0633d9a5c21f3dc103d7"
+    },
+    {
+      "path": "apps/worker/tests/codex-knowledge-tools.test.ts",
+      "sha256": "f4283688c5390e6177ae32dcf15f43ae2dcda3a3b82270adb3429e33122e1f0f"
+    },
+    {
+      "path": "apps/worker/tests/codex-permissions.test.ts",
+      "sha256": "c84b18275632ad84835ceaf1bb08834fc73af2c1b7954329d2529730838a3287"
+    },
+    {
+      "path": "apps/worker/tests/codex-policy.test.ts",
+      "sha256": "23a03a024f6ab75fd7165460adb7544196567c759743d8cc547efc797e474353"
+    },
+    {
+      "path": "apps/worker/tests/codex-pool.test.ts",
+      "sha256": "c81481d61cb4e3cc9cec9adabbb88cdbd110ecc14d42c8d1fb2151604ec26ccf"
+    },
+    {
+      "path": "apps/worker/tests/codex-rpc.test.ts",
+      "sha256": "f77efcf06b8e335311e234e5d25004688e0425fbec9de1e8751fecb86423c152"
+    },
+    {
+      "path": "apps/worker/tests/codex-session.test.ts",
+      "sha256": "5b12872683b4ecf569da02209a6eed0bd39aaaf2cf5533bfdf16385529293206"
+    },
+    {
+      "path": "apps/worker/tests/codex-title-tools.test.ts",
+      "sha256": "b9671b47ea12944f03883d7a13bd395b857eb77576878fd19a24811e8b53936a"
+    },
+    {
+      "path": "apps/worker/tests/computer-cli-release.test.ts",
+      "sha256": "ffb9c8989b1a911288b27688d08eb75c4d4f00b3a26f935038fbf960388dcb11"
+    },
+    {
+      "path": "apps/worker/tests/computer-cli.test.ts",
+      "sha256": "9c2eb2edc232a339ca6eccb87a7584be4dfd3aaa74e3b981918435585d9fa481"
+    },
+    {
+      "path": "apps/worker/tests/computer-diagnostics.test.ts",
+      "sha256": "eeb571f305e9b9a3d870c8bc04609d5d6087838c02cbe6b71bfa4ed878926461"
+    },
+    {
+      "path": "apps/worker/tests/computer-launcher.test.ts",
+      "sha256": "045329264865c0a7d09b69f9e9163c51a3c9f102607ed4401b22d8afc0af8e06"
+    },
+    {
+      "path": "apps/worker/tests/computer-pairing-release.test.ts",
+      "sha256": "f8a2df1b78e3c613f4d9df070cd66bb9ca108addeb5c5aa2a1bea2720a15ca17"
+    },
+    {
+      "path": "apps/worker/tests/computer-releases.test.ts",
+      "sha256": "6f0fc34bb90a678b6dbaef2cf5e2fd27bfc96349c969b70c6973ee490547634d"
+    },
+    {
+      "path": "apps/worker/tests/computer-setup.test.ts",
+      "sha256": "cf500ad80e6c5abc6fda45f5ea6c0ecc92fb49e8b1127af0d609a4cb1cb7ad7d"
+    },
+    {
+      "path": "apps/worker/tests/computer-update-activity.test.ts",
+      "sha256": "20d7c4df055cba692c9ab217da5795407eddd0b25ada68c0e8d3de5e2601f308"
+    },
+    {
+      "path": "apps/worker/tests/computer-update.test.ts",
+      "sha256": "b01861c0a7afb89c79ab98b919eedaffeeb4abaa6937dab860f05f566c59cea8"
+    },
+    {
+      "path": "apps/worker/tests/config-controller.test.ts",
+      "sha256": "c378da6e0ad40d7938b8861afc7c223ded6c4078cbb49ae33eee358f59385b10"
+    },
+    {
+      "path": "apps/worker/tests/config-runtime-application.test.ts",
+      "sha256": "c1815773bc6468796251662ab03cfdb0c8301d2f1d52cfa7095c180b7e8e0970"
+    },
+    {
+      "path": "apps/worker/tests/development-agent-sessions.test.ts",
+      "sha256": "1500240187d005d6b1691c0a8a65d09f1ee6bf02e4a64073f46f0650af0dd8c7"
+    },
+    {
+      "path": "apps/worker/tests/development-codex-resume.test.ts",
+      "sha256": "9a3e2ea63e6cfa6bc71d6fb270ec78aa3109a7d83022102c705d3fec5d671b0c"
+    },
+    {
+      "path": "apps/worker/tests/development-files.test.ts",
+      "sha256": "74bb0e72ab99954506477975a3211e6347cb51c28b0fc18332f0906af71a9324"
+    },
+    {
+      "path": "apps/worker/tests/development-history.test.ts",
+      "sha256": "e73a194f13e0adfc134eed14c736346ead372acf07bad7247cfaa0e749d99530"
+    },
+    {
+      "path": "apps/worker/tests/development-output.test.ts",
+      "sha256": "6012503bee194d29a6810016e2e32d51e3719e497292fb2c0b6d1447dee05f8b"
+    },
+    {
+      "path": "apps/worker/tests/development-repository.test.ts",
+      "sha256": "47e4553bcfd040b3e0525c9fc4b0ab8779111a7dee465d13880a28f792a50dd5"
+    },
+    {
+      "path": "apps/worker/tests/development-root-policy.test.ts",
+      "sha256": "2fd9d0e934778e9a7d4f32f5ed6716196745a7a6d51cdc696a134a463435d6ed"
+    },
+    {
+      "path": "apps/worker/tests/development-service.test.ts",
+      "sha256": "8a86ba2a54732df6139b0804de66a8e878aa576df850794e4fd2b21719098e38"
+    },
+    {
+      "path": "apps/worker/tests/development-sessions.test.ts",
+      "sha256": "4d83e4c0b91c1f9d2a723b2e2685cb71ed458ad7a970d69363a45ab78167468a"
+    },
+    {
+      "path": "apps/worker/tests/environment-engine-report.test.ts",
+      "sha256": "86a579d4588e2e9af3c158f824557d0bbcc72cee82eb7431f0d84e7b1b7214f5"
+    },
+    {
+      "path": "apps/worker/tests/git-command.test.ts",
+      "sha256": "cbef5d928efa485841164c484be0df3ee99a8a0dfa42314795bcad73a1d2b5bd"
+    },
+    {
+      "path": "apps/worker/tests/helpers/native-index-crash.ts",
+      "sha256": "1b629181189910b1fc35fbbc9472575dfb53c00420df8827ea63b8720966b465"
+    },
+    {
+      "path": "apps/worker/tests/helpers/native-policy.ts",
+      "sha256": "8ee35518da189bf4b916f4b35b35ff73361a84ff6d04ab92e5993a6c835aac96"
+    },
+    {
+      "path": "apps/worker/tests/helpers/native-unit-crash.ts",
+      "sha256": "6cbe2907bb3b49873429fe45a399e27520daf0c922ced9b88f757134fc196447"
+    },
+    {
+      "path": "apps/worker/tests/maintenance-client.test.ts",
+      "sha256": "8ae53754864863ce72472d67698e942c9d461c14ddac2edc00d0430aef41c754"
+    },
+    {
+      "path": "apps/worker/tests/maintenance-git.test.ts",
+      "sha256": "1daa2925767af84e673dee1ff7482b5e5c465c48bafca587701f13231f9c38e5"
+    },
+    {
+      "path": "apps/worker/tests/native-check-service.test.ts",
+      "sha256": "240a78ae811c5f6c2e66ed3477ecf048cd29a5c6305ad0884d55901d97723d16"
+    },
+    {
+      "path": "apps/worker/tests/native-check-snapshot.test.ts",
+      "sha256": "dad390085d230060c744226bddca3f88c95538c3eb7667727099487364bb6fa5"
+    },
+    {
+      "path": "apps/worker/tests/native-check-window.test.ts",
+      "sha256": "ef784dd5289afbf072e0d6c9639cd04dcfac80650d5f0c4b041390b0be7a8bf9"
+    },
+    {
+      "path": "apps/worker/tests/native-codebase-commit.test.ts",
+      "sha256": "e852625780608e4753f3a8688eaa84bfdd419cadc2999fdcab0c051de55bf334"
+    },
+    {
+      "path": "apps/worker/tests/native-codebase-delivery.test.ts",
+      "sha256": "41c4bbc56651d4eabea1f4c63295207cfcdc5add5b0ed341d7ec2b2c96b87ba0"
+    },
+    {
+      "path": "apps/worker/tests/native-codebase-workspace-owners.test.ts",
+      "sha256": "a7eab481ec267c250ffff7e26a765aa17d0b19f544e9433516a23bc789c78934"
+    },
+    {
+      "path": "apps/worker/tests/native-codebases.test.ts",
+      "sha256": "350fcb539cb6fc012d0d9898ab11b88511ca5c2fd86b8f244bc7059222b9d476"
+    },
+    {
+      "path": "apps/worker/tests/native-command-receipts.test.ts",
+      "sha256": "76724af47c5d3e401e350c26b280e9561a69397d65870434bcaaa7dd44c2d40f"
+    },
+    {
+      "path": "apps/worker/tests/native-config-readiness.test.ts",
+      "sha256": "2ba1a97db8843e8efaff612ba26f0fb3172f579d971c92e2b9409c29766d193f"
+    },
+    {
+      "path": "apps/worker/tests/native-conversation-output.test.ts",
+      "sha256": "8e6b1b7e074029e8fc521d243630f42d6006c563c73aa65f2c56a5c7256c18f3"
+    },
+    {
+      "path": "apps/worker/tests/native-engine-async-authority.test.ts",
+      "sha256": "3d6a9d088f7a5090b57adfa1e27557cb4dd2bce0aca8bee2e91b4c0602f08016"
+    },
+    {
+      "path": "apps/worker/tests/native-engine-delivery.test.ts",
+      "sha256": "ab22d8866f5b3d224a9fa89b173855289080467a3dad054d704e22301bde07fe"
+    },
+    {
+      "path": "apps/worker/tests/native-engine-files.test.ts",
+      "sha256": "b181d8197c6a865cc611e0cee43c9c8b1637495bebbeed538f292c4d8fff4d2a"
+    },
+    {
+      "path": "apps/worker/tests/native-engine-recovery.test.ts",
+      "sha256": "49f545a220069a3f72f25986df39c8ca381add6d188c4ad1ddbb06e3b41a77e5"
+    },
+    {
+      "path": "apps/worker/tests/native-executable.test.ts",
+      "sha256": "34ea70bf60aa8cc3e8969cc685fb9c8b3b95531fba5b7eb9738e039072800687"
+    },
+    {
+      "path": "apps/worker/tests/native-guardian.test.ts",
+      "sha256": "fb36aeed40dda9c255a91ac1465a741eacb227cb11f60a7d6fc4b446d6e017b4"
+    },
+    {
+      "path": "apps/worker/tests/native-idle-reload.test.ts",
+      "sha256": "ae2ebab46b2da20cf5bba25257886267ee36809cb4dd5b790d0217231d0927e9"
+    },
+    {
+      "path": "apps/worker/tests/native-knowledge-runtime.test.ts",
+      "sha256": "ad261929bd2e7ef3eb021e40a79639cd3ba5775bccde1d733e296ba9c9cddd4e"
+    },
+    {
+      "path": "apps/worker/tests/native-knowledge-service.test.ts",
+      "sha256": "9116b0b731248a0edb4d89b62b4098583f27c416da389d07f3d7f4713d354010"
+    },
+    {
+      "path": "apps/worker/tests/native-knowledge-sources.test.ts",
+      "sha256": "47a6db7af45d29793b5df3cfea3bb7027a8055acc737e01366bad1486f9f8125"
+    },
+    {
+      "path": "apps/worker/tests/native-permissions.test.ts",
+      "sha256": "e0398aca95ad0654e6221302d56de0cb554d8d4da3aac0678bffeae6436471c8"
+    },
+    {
+      "path": "apps/worker/tests/native-readiness-lifecycle.test.ts",
+      "sha256": "42932f57fc7e58fb71545f8d9f72f33fee2f7f38006d15bb95be621a906711ef"
+    },
+    {
+      "path": "apps/worker/tests/native-session-cleanup.test.ts",
+      "sha256": "34a603a7971b19ecaf4d0070b8b294f9b29b2528e52a34bdc06f41ad45c5fc23"
+    },
+    {
+      "path": "apps/worker/tests/native-systemd-supervisor.test.ts",
+      "sha256": "b1b61897678487f6f8788744519977a5741b7e9f31bdc73f748a545bf1b16e75"
+    },
+    {
+      "path": "apps/worker/tests/native-systemd-target.test.ts",
+      "sha256": "aa8254fe34807d931acdf58567b77a010ed42deffe54d2e649b9c1c86ba3749b"
+    },
+    {
+      "path": "apps/worker/tests/native-systemd-unit.test.ts",
+      "sha256": "99172303a20faf931445dc72da33b4c98dba42a7327a60c70820aa41e5297ee6"
+    },
+    {
+      "path": "apps/worker/tests/native-title-runtime.test.ts",
+      "sha256": "09687ecf99981433debb408b3dbb8c64f1b9738d961d399690e280bcf7da6f81"
+    },
+    {
+      "path": "apps/worker/tests/native-title-service.test.ts",
+      "sha256": "a11f413dd724347254398bae7ea8b6a9a14eddc8f676bc6c83f68547538e892a"
+    },
+    {
+      "path": "apps/worker/tests/native-unit-registry.test.ts",
+      "sha256": "feb9e50b7deded60a1293316a5ef917808d93ec91307d20405b7216fbc52cc5e"
+    },
+    {
+      "path": "apps/worker/tests/native-workspace-roots.test.ts",
+      "sha256": "1c3ca78822fc7218665ee5c8d91b5a9964eb268e0de276d8dededcf8a0c3d151"
+    },
+    {
+      "path": "apps/worker/tests/native-workspace-transport.test.ts",
+      "sha256": "01fff759d3c8879b4a3d7981cc7cedd1a0e2f79ad0c1d249dce38cb167407bcd"
+    },
+    {
+      "path": "apps/worker/tests/owned-workspace-security.test.ts",
+      "sha256": "b9113688d66a56d8340e81bf2d80e4a8aa69c1ec4f9675df20efaa8f09bad89c"
+    },
+    {
+      "path": "apps/worker/tests/worker-checkpoints.test.ts",
+      "sha256": "eeca55905ebcd7dc82af554281eb57d8dd663430222bdd2e5aeec28ceeb18999"
+    },
+    {
+      "path": "apps/worker/tests/worker-cli.test.ts",
+      "sha256": "835eb7ee8176b46be4a49261a0cdcad7c66a94c691822941aad34388f815d5d5"
+    },
+    {
+      "path": "apps/worker/tests/worker-client.test.ts",
+      "sha256": "1a3aa3c7b4dadd8e2ed2d3aa56386be51341cf9183b314ca39e9ce0c3b95b284"
+    },
+    {
+      "path": "apps/worker/tests/worker-codebase-workspace.test.ts",
+      "sha256": "55b4f71201df6e4eb02d4b95bc10c20496ee2a01d6986d2462ecf1cca451c6d4"
+    },
+    {
+      "path": "apps/worker/tests/worker-codex-sandbox.test.ts",
+      "sha256": "5a0433f0fec7d9e73802591f5bf2accd10e7bf9d741aa31ee311935a8c09c078"
+    },
+    {
+      "path": "apps/worker/tests/worker-codex.test.ts",
+      "sha256": "973ea831d5740f171490147d08cbe6804bcaece3895e9880e436a992db917713"
+    },
+    {
+      "path": "apps/worker/tests/worker-delivery-security.test.ts",
+      "sha256": "00a7543b4aed1c075db2f4c306a87189d74fb7dc77f5f32e197d39af6a647208"
+    },
+    {
+      "path": "apps/worker/tests/worker-delivery.test.ts",
+      "sha256": "69cd07b17171a210837f08cce533673c2962fe0875bdc801700d6c738dfecdd6"
+    },
+    {
+      "path": "apps/worker/tests/worker-environment.test.ts",
+      "sha256": "3861174e21d2f433198e55f8a2e1d61fb8cc6a25450b040989c9a18acd7aaf30"
+    },
+    {
+      "path": "apps/worker/tests/worker-executor.test.ts",
+      "sha256": "781c9e11426592cd261733c42a84047ca4f8c46e67752774bb750ccffbd7e32b"
+    },
+    {
+      "path": "apps/worker/tests/worker-file-races.test.ts",
+      "sha256": "2eb1d9f9c201c9cf3f20e3b582cc3dec4896893a44d90babe8c89aa21eff5fb2"
+    },
+    {
+      "path": "apps/worker/tests/worker-files.test.ts",
+      "sha256": "2d7b78e0a0221a64cd63b3911f2be757c03d6c25c9ea8198a10c689d1eafe080"
+    },
+    {
+      "path": "apps/worker/tests/worker-git-helper.test.ts",
+      "sha256": "ed0a5e2fe79ffdc4582c1e5ca83ff4673b8c5d8c4e99abad1c37f779f6e3da79"
+    },
+    {
+      "path": "apps/worker/tests/worker-git-lifecycle.test.ts",
+      "sha256": "05ac23fb624455c8daebe45a8795efed5029e3585c40a640a7666cc91ebc3a81"
+    },
+    {
+      "path": "apps/worker/tests/worker-local-git-credentials.test.ts",
+      "sha256": "dd4f38baec31b6c675916438f2f9746d9c4fb7ea992616c3ac55d820c3b9120b"
+    },
+    {
+      "path": "apps/worker/tests/worker-opencode.test.ts",
+      "sha256": "4fa4633fe5732c7d5921f7e1123b240961b8b626d57fd8ce674e870ea0f61b83"
+    },
+    {
+      "path": "apps/worker/tests/worker-output-security.test.ts",
+      "sha256": "dc6188b6f6286a8589114e4850dd2d8c4710673042d95f2f49fcc104b4263aa7"
+    },
+    {
+      "path": "apps/worker/tests/worker-session-checkpoint.test.ts",
+      "sha256": "9f4679d4f2cdc24bd54d4d8625ab20a1e507310d33ecd64a3db229a9fdd9cbea"
+    },
+    {
+      "path": "apps/worker/tests/worker-state.test.ts",
+      "sha256": "c8a541ba34c92fec4cf8ac10c2f3101efc55a0f2f1283f09434848c028d36666"
+    },
+    {
+      "path": "scripts/package-runtime.mjs",
+      "sha256": "d4796596e392b016addd5f0c96159fcb54540bba1a64e91338ef874d94dd56df"
+    },
+    {
+      "path": "scripts/package-computer.mjs",
+      "sha256": "3d7c7d6aa5e8028cf6d5dadf52fae3a33304a56f20168fb2122e091b395363bc"
+    },
+    {
+      "path": "scripts/computer-archive.mjs",
+      "sha256": "699b32f9b5327783e8304516a9ffc491f4eaf2e981258458f9c3d4983062f58c"
+    },
+    {
+      "path": "scripts/computer-release.mjs",
+      "sha256": "91fd6a08f02612187b31ce1b286cfe430d59ef824eb1d4f37cf4da8ab75c2fea"
+    },
+    {
+      "path": "scripts/computer-node-runtime.mjs",
+      "sha256": "f5aa01184cde21fa4aeb0e86d80a9018e88279561fdc2364bcdf042f92048579"
+    },
+    {
+      "path": "scripts/sign-computer-release.mjs",
+      "sha256": "57778460c669e4071ab253915379db93abf5e69b8c0a3779d37ef667bf6f2ba7"
+    },
+    {
+      "path": "scripts/package-computer-source.mjs",
+      "sha256": "1ec03d8d211695dd797ac8b7cbd6d8d08a7adc0c90663c0302b273cf7a4cdc21"
+    },
+    {
+      "path": "scripts/prepare-computer-release.mjs",
+      "sha256": "441d053c4853f54f504170ecf232712b81570de815f8d74c95d83e040da15048"
+    },
+    {
+      "path": "scripts/publish-computer-release.mjs",
+      "sha256": "336265a3383a68f0760395c1c5488bd3d5caa2a8ecf4745ab0a551318fbc4d4f"
+    },
+    {
+      "path": "scripts/tests/computer-package.test.mjs",
+      "sha256": "38a405032ad1b4dc2fb9878a0dce89efb565a4a619604763d7ee8ffa198a5e59"
+    },
+    {
+      "path": "scripts/tests/computer-signing.test.mjs",
+      "sha256": "0c5b4a41946046e6cf151352b7e3558778c6dbb60a864af24dd9caf172a6bfa9"
+    },
+    {
+      "path": "scripts/tests/computer-archive.test.mjs",
+      "sha256": "e5ebdcb2c631ff45ffb7227a377e061de4b329d2bbdc9370beabdaa7bfe92835"
+    },
+    {
+      "path": "scripts/tests/computer-public-release.test.mjs",
+      "sha256": "f6143d56ad126b4c14493f72e2f020a0d354c532acc5901c7a6d2ea59211e44e"
+    },
+    {
+      "path": "scripts/tests/computer-publish.test.mjs",
+      "sha256": "b933a001839b6bb14d0346dc8c62df22cd67bcc95f51545d3ef0f8d93fa96f35"
+    },
+    {
+      "path": "scripts/templates/install-computer.sh",
+      "sha256": "34e9cff8cafc123f093c5c7d030d08be7810ed40b19e4a549da0473151ca134c"
+    },
+    {
+      "path": "scripts/templates/computer-source-readme.md",
+      "sha256": "002f8284287791afe6b3dd11b82315b24cfdefd0ab207eba3cf6fa82638b2509"
+    },
+    {
+      "path": "README.md",
+      "sha256": "002f8284287791afe6b3dd11b82315b24cfdefd0ab207eba3cf6fa82638b2509"
+    },
+    {
+      "path": "scripts/templates/computer-repository/CONTRIBUTING.md",
+      "sha256": "c82e809280173439df5832726a28205f13ea2c00b8290409271f964d35afe2d0"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "c82e809280173439df5832726a28205f13ea2c00b8290409271f964d35afe2d0"
+    },
+    {
+      "path": "scripts/templates/computer-repository/SECURITY.md",
+      "sha256": "6fbece00ca6e2caf41a78ea2f5ada9643b15442e92d06be21461f4989006545a"
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "6fbece00ca6e2caf41a78ea2f5ada9643b15442e92d06be21461f4989006545a"
+    },
+    {
+      "path": "scripts/templates/computer-repository/COMPATIBILITY.md",
+      "sha256": "a3911212b4f2f8f38bb6fa825b469121d4f5b4db8d66b1e95e76eb0ebb54f3cb"
+    },
+    {
+      "path": "COMPATIBILITY.md",
+      "sha256": "a3911212b4f2f8f38bb6fa825b469121d4f5b4db8d66b1e95e76eb0ebb54f3cb"
+    },
+    {
+      "path": "scripts/templates/computer-repository/RELEASE.md",
+      "sha256": "c9887b900cd3edcdb0757c67e34b169f2e4c7818108f1a7bac8878df2bdef59b"
+    },
+    {
+      "path": "RELEASE.md",
+      "sha256": "c9887b900cd3edcdb0757c67e34b169f2e4c7818108f1a7bac8878df2bdef59b"
+    },
+    {
+      "path": "scripts/templates/computer-repository/.github/workflows/ci.yml",
+      "sha256": "d525cfd04ae71d1b50b4475f3e1062bff407be0a538cb38c3f9c27916916815b"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "d525cfd04ae71d1b50b4475f3e1062bff407be0a538cb38c3f9c27916916815b"
+    },
+    {
+      "path": "scripts/templates/computer-repository/.github/workflows/release.yml",
+      "sha256": "c4708fe46c2ec40d7da3f5abdb84466d994c9bb0f0df424fbd551695a5f1ac27"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "c4708fe46c2ec40d7da3f5abdb84466d994c9bb0f0df424fbd551695a5f1ac27"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "08c1afe54fd6b6411082cacbda26c5c64056ed6070a81a2c3eb02699c187185a"
+    },
+    {
+      "path": "tsconfig.base.json",
+      "sha256": "00659e5147323c6ed9ca05e72cf04106df754ff99733fc54396bd605081c9ca7"
+    }
+  ]
+}

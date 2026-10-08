@@ -1,0 +1,32 @@
+{
+  "name": "@luoshu/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./recovery-hash": {
+      "types": "./dist/recovery-hash.d.ts",
+      "import": "./dist/recovery-hash.js"
+    },
+    "./assistant-engine-files-hash": {
+      "types": "./dist/assistant-engine-files-hash.d.ts",
+      "import": "./dist/assistant-engine-files-hash.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "@types/node": "26.5.1"
+  },
+  "license": "MIT"
+}

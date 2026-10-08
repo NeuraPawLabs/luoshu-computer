@@ -1,0 +1,38 @@
+name: Computer unsigned prerelease
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag, such as v0.1.6
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.1
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: npm run lint
+      - run: npm test
+      - run: npm run package
+      - run: npm run test:package
+      - run: npm run release:prepare
+      - name: Create a new prerelease from verified files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/publish-computer-release.mjs --bundle dist/release-bundle
