@@ -18,7 +18,18 @@ npm run test:package
 
 The self-contained release is written to `dist/computer/`. Packaging bundles the current Node binary and native modules and therefore must run on Linux x64. The Node distribution LICENSE must be present in its installation prefix; an explicit path can be provided through `LUOSHU_NODE_LICENSE_FILE`.
 
-Two Core↔Worker integration tests remain in the main repository and are listed in `source-export.json`. The exported tests cover local runtime and protocol behavior; running them does not claim to validate a production Core or real model quality.
+The main repository owns the Core side of the device protocol; this repository owns the device runtime and its local/protocol tests. Running these tests does not claim to validate a production Core or real model quality.
+
+## Install from GitHub
+
+The public installer discovers the newest non-draft GitHub release, downloads its Linux x64 assets, verifies the published SHA256SUMS, and installs the Computer runtime:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/NeuraPawLabs/luoshu-computer/main/scripts/templates/install-github-computer.sh | sh
+luoshu-computer setup --server https://console.example --code '<pairing-code>' --name 'My computer'
+```
+
+Set `LUOSHU_RELEASE_TAG=v0.1.0` to install a specific tag, or `LUOSHU_COMPUTER_REPOSITORY=owner/repository` for a trusted mirror. GitHub Release redirects are accepted by this bootstrap installer and the downloaded archive is still checked against the release checksums. Automatic signed-feed updates remain available through the separately configured `--release-url` and `--release-key` settings.
 
 ## Signed independent updates
 

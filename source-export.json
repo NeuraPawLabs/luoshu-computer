@@ -12,10 +12,7 @@
     "commit": "ec1b63f0f650ebb067a9a4486d9c5ae7eb2f9252",
     "dirty": false
   },
-  "joint_tests_remaining_in_main": [
-    "apps/worker/tests/assistant-engine-runtime.test.ts",
-    "apps/worker/tests/native-capacity-integration.test.ts"
-  ],
+  "joint_tests_remaining_in_main": [],
   "files": [
     {
       "path": "packages/protocol/package.json",
@@ -1012,6 +1009,10 @@
     {
       "path": "tsconfig.base.json",
       "sha256": "00659e5147323c6ed9ca05e72cf04106df754ff99733fc54396bd605081c9ca7"
+    },
+    {
+      "path": "scripts/templates/install-github-computer.sh",
+      "sha256": "9d00400f7c62416b42b7ee89fd903fa3314f4bbcf0d0d280303ebf449523ce82"
     }
   ]
 }

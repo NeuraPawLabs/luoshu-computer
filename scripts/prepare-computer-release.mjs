@@ -55,7 +55,7 @@ function publicPath(path){
  const parts=path.split('/');
  if(parts.length===2&&parts[0]==='scripts')return scripts.has(parts[1]);
  if(parts.length===3&&parts[0]==='scripts'&&parts[1]==='tests')return tests.has(parts[2]);
- if(path==='scripts/templates/install-computer.sh'||path==='scripts/templates/computer-source-readme.md')return true;
+ if(['scripts/templates/install-computer.sh','scripts/templates/install-github-computer.sh','scripts/templates/computer-source-readme.md'].includes(path))return true;
  if(/^scripts\/templates\/computer-repository\/(?:README|CONTRIBUTING|SECURITY|COMPATIBILITY|RELEASING|RELEASE)\.md$/.test(path))return true;
  if(/^(?:\.github\/workflows|scripts\/templates\/computer-repository\/\.github\/workflows)\/[a-zA-Z0-9_-]+\.ya?ml$/.test(path))return true;
  if(/^(?:apps\/worker|packages\/(?:protocol|config))\/(?:package\.json|tsconfig\.json|LICENSE)$/.test(path))return true;

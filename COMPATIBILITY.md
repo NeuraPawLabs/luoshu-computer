@@ -10,6 +10,6 @@ Computer version and protocol version are separate. Core and Computer currently 
 
 Codex/OpenCode are user-installed tools with their own accounts. The runtime detects and audits capabilities before advertising them; this repository does not bundle or license those programs. A successfully installed Computer does not imply an authenticated Agent or an available model.
 
-Two tests use Core's database/scheduler and stay in the original repository: `apps/worker/tests/assistant-engine-runtime.test.ts` and `apps/worker/tests/native-capacity-integration.test.ts`. This independent repository runs the local/protocol suites. Protocol or execution-contract changes must also pass the corresponding Core integration tests before both systems are released.
+The Core database and scheduler remain in the parent repository; this independent repository runs the device-local and protocol suites. Protocol or execution-contract changes must also pass the corresponding Core integration tests before both systems are released.
 
 The parent repository is `NeuraPawLabs/luoshu`; the initial exact import commit and content hashes are in `source-export.json`. After independent development, synchronize by reviewing changes against the parent compatibility snapshot. Do not delete or replace a user's running database or identity to make a version appear compatible.
