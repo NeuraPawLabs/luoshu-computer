@@ -13,7 +13,7 @@ function fixture(){
  const manifest={version:'0.1.6',tag:'v0.1.6',commit:'a'.repeat(40),protocol_version:8,prerelease:true,signature:'none',artifacts:names.map(name=>({name,size:bytes.length,sha256}))};
  for(const name of names)writeFileSync(join(bundle,name),bytes);
  writeFileSync(join(bundle,'SHA256SUMS'),names.map(name=>`${sha256}  ${name}\n`).join(''));writeFileSync(join(bundle,'release-notes.md'),'Unsigned Computer prerelease\n');writeFileSync(join(bundle,'release.json'),JSON.stringify(manifest));
- writeFileSync(join(bin,'gh'),`#!/usr/bin/env node\nconst fs=require('fs');const args=process.argv.slice(2);fs.appendFileSync(process.env.TEST_GH_LOG,JSON.stringify(args)+'\\n');if(args[0]==='api')console.log(JSON.stringify(args[1].includes('/git/ref/')?{object:{type:'commit',sha:process.env.TEST_TAG_SHA||'a'.repeat(40)}}:{full_name:'NeuraPawLabs/luoshu-computer',private:false,permissions:{push:true}}));else if(args[0]==='release'&&args[1]==='view')process.exit(1);\n`,{mode:0o755});
+ writeFileSync(join(bin,'gh'),`#!/usr/bin/env node\nconst fs=require('fs');const args=process.argv.slice(2);fs.appendFileSync(process.env.TEST_GH_LOG,JSON.stringify(args)+'\\n');if(args[0]==='api'){const repository=process.env.TEST_OMIT_REPOSITORY_PERMISSIONS?{full_name:'NeuraPawLabs/luoshu-computer',private:false}:{full_name:'NeuraPawLabs/luoshu-computer',private:false,permissions:{push:true}};console.log(JSON.stringify(args[1].includes('/git/ref/')?{object:{type:'commit',sha:process.env.TEST_TAG_SHA||'a'.repeat(40)}}:repository));}else if(args[0]==='release'&&args[1]==='view')process.exit(1);\n`,{mode:0o755});
  mkdirSync(join(root,'scripts'));const publisher=join(root,'scripts/publish-computer-release.mjs');cpSync(resolve('scripts/publish-computer-release.mjs'),publisher);const keys=generateKeyPairSync('ed25519');writeFileSync(join(root,'release-public-key.pem'),keys.publicKey.export({format:'pem',type:'spki'}));
  return{root,bundle,artifact,log,publisher,keys,env:{...process.env,PATH:bin+':'+process.env.PATH,TEST_GH_LOG:log,GH_REPO:'NeuraPawLabs/luoshu-computer'}};
 }
@@ -23,6 +23,11 @@ test('publisher creates an unsigned prerelease using only validated explicit art
   const calls=readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse),create=calls.find(args=>args[0]==='release'&&args[1]==='create');
   assert.ok(create);assert.ok(create.includes('--prerelease'));assert.ok(create.includes('--verify-tag'));assert.ok(create.includes('--latest=false'));
   assert.ok(create.includes(join(f.bundle,f.artifact)));assert.ok(create.includes(join(f.bundle,'release.json')));assert.ok(create.includes(join(f.bundle,'SHA256SUMS')));
+ }finally{rmSync(f.root,{recursive:true,force:true});}
+});
+test('publisher accepts an Actions repository response without user permissions metadata',()=>{
+ const f=fixture();try{
+  execFileSync(process.execPath,[f.publisher,'--bundle',f.bundle],{env:{...f.env,TEST_OMIT_REPOSITORY_PERMISSIONS:'1',GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'NeuraPawLabs/luoshu-computer'},stdio:'pipe'});
  }finally{rmSync(f.root,{recursive:true,force:true});}
 });
 test('publisher refuses a remote tag pointing to different source',()=>{

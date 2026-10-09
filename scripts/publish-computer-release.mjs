@@ -38,7 +38,10 @@ if(release.signature==='ed25519'){
 const gh=(args)=>execFileSync(process.env.LUOSHU_GH_BIN??'gh',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
 gh(['auth','status','--hostname','github.com']);
 const repository=JSON.parse(gh(['api',`repos/${repo}`]));
-if(repository.full_name!==repo||repository.private!==false||repository.permissions?.push!==true)throw Error('GitHub repository must be the selected public writable repository');
+// GitHub's Actions installation token can omit the user-style push permission field;
+// the later release create is the write authorization check for the selected repo.
+const actionsRepository=process.env.GITHUB_ACTIONS==='true'&&process.env.GITHUB_REPOSITORY===repo;
+if(repository.full_name!==repo||repository.private!==false||(!actionsRepository&&repository.permissions?.push!==true))throw Error('GitHub repository must be the selected public writable repository');
 let ref=JSON.parse(gh(['api',`repos/${repo}/git/ref/tags/${release.tag}`])).object;
 if(ref?.type==='tag')ref=JSON.parse(gh(['api',`repos/${repo}/git/tags/${ref.sha}`])).object;
 if(ref?.type!=='commit'||ref.sha!==release.commit)throw Error('Remote release tag does not match the prepared source commit');
