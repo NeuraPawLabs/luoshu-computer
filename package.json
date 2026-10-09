@@ -1,5 +1,5 @@
 {
-  "name": "luoshu-computer-source",
+  "name": "luoshu-computer",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -7,32 +7,40 @@
   "engines": {
     "node": ">=22"
   },
-  "workspaces": [
-    "packages/protocol",
-    "packages/config",
-    "apps/worker"
-  ],
   "scripts": {
     "build": "tsc -b",
     "lint": "tsc -b --pretty false",
     "test": "vitest run",
-    "worker": "npm run dev -w @luoshu/worker --",
-    "computer": "tsx apps/worker/src/computer-main.ts",
+    "worker": "tsx src/runtime/worker-main.ts",
+    "computer": "tsx src/main.ts",
     "package": "node scripts/package-computer.mjs",
-    "package:source": "node scripts/package-computer-source.mjs",
     "sign": "node scripts/sign-computer-release.mjs",
-    "test:package": "node --test scripts/tests/computer-package.test.mjs scripts/tests/computer-signing.test.mjs scripts/tests/computer-archive.test.mjs scripts/tests/computer-public-release.test.mjs scripts/tests/computer-publish.test.mjs scripts/tests/computer-github-install.test.mjs scripts/tests/computer-ci-signing.test.mjs",
+    "test:package": "node --test tests/release/*.test.mjs",
     "release:prepare": "node scripts/prepare-computer-release.mjs",
     "release:publish": "node scripts/publish-computer-release.mjs",
-    "release:prepare:signed": "node scripts/prepare-signed-computer-release.mjs"
+    "release:prepare:signed": "node scripts/prepare-signed-computer-release.mjs",
+    "dev": "tsx src/main.ts",
+    "start": "node dist/lib/main.js"
   },
   "devDependencies": {
     "@types/node": "26.5.1",
     "typescript": "7.0.2",
     "tsx": "4.23.13",
-    "vitest": "5.0.0"
+    "vitest": "5.0.0",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/ws": "8.18.1"
   },
   "allowScripts": {
     "node-pty@1.1.0": true
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.3",
+    "node-pty": "^1.1.0",
+    "ws": "8.21.3",
+    "zod": "4.6.5"
+  },
+  "bin": {
+    "luoshu-computer": "dist/lib/main.js",
+    "luoshu-worker": "dist/lib/runtime/worker-main.js"
   }
 }

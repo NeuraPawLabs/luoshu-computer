@@ -3,7 +3,7 @@ import {existsSync,lstatSync,mkdtempSync,mkdirSync,readFileSync,readdirSync,real
 import {dirname,join,resolve,sep} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
-import {validateComputerRelease} from './computer-release.mjs';
+import {validateComputerRelease} from '../dist/lib/shared/release-validation.js';
 
 const root=resolve(import.meta.dirname,'..');
 const options={};
@@ -22,8 +22,8 @@ function assertNoSymlinkPath(path){
  }
 }
 assertNoSymlinkPath(root);assertNoSymlinkPath(output);
-if(within(root,output)||['apps','packages','.git','scripts','.github'].some(path=>within(output,join(root,path))))throw Error('Unsafe release output directory: keep output outside source and Git directories');
-if(['computer','worker','.computer-staging'].some(path=>within(output,join(root,'dist',path))||within(join(root,'dist',path),output)))throw Error('Unsafe release output overlaps a build or package directory');
+if(within(root,output)||['src','tests','docs','.git','scripts','.github'].some(path=>within(output,join(root,path))))throw Error('Unsafe release output directory: keep output outside source and Git directories');
+if(['lib','runtime','computer','.computer-staging'].some(path=>within(output,join(root,'dist',path))||within(join(root,'dist',path),output)))throw Error('Unsafe release output overlaps a build or package directory');
 if(existsSync(output)&&(!lstatSync(output).isDirectory()||existsSync(join(output,'.git'))))throw Error('Release output must be a directory without Git metadata');
 let signingKey;
 if(options['--key']){
@@ -36,30 +36,23 @@ const git=(...arguments_)=>execFileSync('git',arguments_,{cwd:root,maxBuffer:128
 if(realpathSync(git('rev-parse','--show-toplevel').toString().trim())!==realpathSync(root))throw Error('Release source must be an independent Git repository root');
 if(git('status','--porcelain=v1','--untracked-files=all').length)throw Error('Release requires a clean Git tree, including untracked source files');
 const commit=git('rev-parse','HEAD').toString().trim();
-const worker=JSON.parse(git('show','HEAD:apps/worker/package.json'));
 const sourcePackage=JSON.parse(git('show','HEAD:package.json'));
-const version=worker.version;
-if(!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)||sourcePackage.version!==version)throw Error('Independent root and Worker package versions must match');
+const version=sourcePackage.version;
+if(!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version))throw Error('Invalid Computer package version');
 const tag=`v${version}`;
 let tagCommit;
 try{tagCommit=git('rev-parse',`refs/tags/${tag}^{commit}`).toString().trim();}catch{throw Error(`Release requires the exact version tag ${tag} at HEAD`);}
 if(tagCommit!==commit)throw Error(`Version tag ${tag} must point at HEAD`);
 
-// Fail closed on repositories that still contain private monorepo material.
-// Only the independently exported Computer source and repository facilities ship.
-const rootFiles=new Set(['.gitignore','LICENSE','README.md','CONTRIBUTING.md','SECURITY.md','COMPATIBILITY.md','RELEASING.md','RELEASE.md','package.json','package-lock.json','tsconfig.json','tsconfig.base.json','vitest.config.ts','source-export.json','release-public-key.pem']);
-const scripts=new Set(['package-runtime.mjs','package-computer.mjs','computer-archive.mjs','computer-release.mjs','computer-node-runtime.mjs','sign-computer-release.mjs','package-computer-source.mjs','prepare-computer-release.mjs','publish-computer-release.mjs','prepare-signed-computer-release.mjs']);
-const tests=new Set(['computer-public-release.test.mjs','computer-source.test.mjs','computer-package.test.mjs','computer-signing.test.mjs','computer-archive.test.mjs','computer-publish.test.mjs','computer-github-install.test.mjs','computer-ci-signing.test.mjs']);
+// Archive only the independent application's tracked public sources.
+const rootFiles=new Set(['.gitignore','LICENSE','README.md','CONTRIBUTING.md','SECURITY.md','package.json','package-lock.json','tsconfig.json','vitest.config.ts','release-public-key.pem']);
 function publicPath(path){
  if(rootFiles.has(path))return true;
- const parts=path.split('/');
- if(parts.length===2&&parts[0]==='scripts')return scripts.has(parts[1]);
- if(parts.length===3&&parts[0]==='scripts'&&parts[1]==='tests')return tests.has(parts[2]);
- if(['scripts/templates/install-computer.sh','scripts/templates/install-github-computer.sh','scripts/templates/computer-source-readme.md'].includes(path))return true;
- if(/^scripts\/templates\/computer-repository\/(?:README|CONTRIBUTING|SECURITY|COMPATIBILITY|RELEASING|RELEASE)\.md$/.test(path))return true;
- if(/^(?:\.github\/workflows|scripts\/templates\/computer-repository\/\.github\/workflows)\/[a-zA-Z0-9_-]+\.ya?ml$/.test(path))return true;
- if(/^(?:apps\/worker|packages\/(?:protocol|config))\/(?:package\.json|tsconfig\.json|LICENSE)$/.test(path))return true;
- return /^(?:apps\/worker|packages\/(?:protocol|config))\/(?:src|tests)\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.ts$/.test(path)&&!['apps/worker/tests/assistant-engine-runtime.test.ts','apps/worker/tests/native-capacity-integration.test.ts'].includes(path);
+ if(path==='docs/provenance/source-import.json')return true;
+ if(/^(?:src|tests)\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:ts|mjs)$/.test(path))return true;
+ if(/^scripts\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:mjs|sh)$/.test(path))return true;
+ if(/^docs\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.md$/.test(path))return true;
+ return /^\.github\/workflows\/[a-zA-Z0-9_-]+\.ya?ml$/.test(path);
 }
 const tree=git('ls-tree','-r','-z',commit).toString().split('\0').filter(Boolean);
 let license,provenance;
@@ -70,11 +63,11 @@ for(const entry of tree){
  const bytes=git('cat-file','blob',hash);
  if(/^-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----\r?$/m.test(bytes.toString()))throw Error(`Tracked source contains private signing key material: ${path}`);
  if(path==='LICENSE')license=bytes.toString();
- if(path==='source-export.json')provenance=JSON.parse(bytes.toString());
+ if(path==='docs/provenance/source-import.json')provenance=JSON.parse(bytes.toString());
  sourceFiles.push({path,bytes,mode:Number.parseInt(mode,8)&0o777});
 }
 if(!license||!/^MIT License\b/m.test(license)||!license.includes('Permission is hereby granted, free of charge'))throw Error('Public source requires its tracked MIT LICENSE');
-if(provenance?.format!=='luoshu-computer-source-v1'||!/^[a-f0-9]{40}$/.test(provenance?.upstream?.commit??'')||provenance.upstream.dirty===true)throw Error('Tracked source-export.json provenance must identify a clean upstream commit');
+if(provenance?.format!=='luoshu-computer-source-v1'||!/^[a-f0-9]{40}$/.test(provenance?.upstream?.commit??'')||provenance.upstream.dirty===true)throw Error('Tracked source-import.json provenance must identify a clean upstream commit');
 const binaryName=`luoshu-computer-${version}-linux-x64.tar.gz`;
 const sourceName=`luoshu-computer-source-${version}.tar.gz`;
 const allowedOutput=new Set([binaryName,sourceName,'install.sh','manifest.json','manifest.sig','SHA256SUMS','release.json','release-notes.md']);
@@ -127,7 +120,7 @@ const artifacts=[
 ];
 if(signingKey)artifacts.push({name:'manifest.sig',bytes:sign(null,manifest,signingKey),mode:0o644});
 const release={version,tag,commit,protocol_version:mirror.manifest.protocol_version,prerelease:!signingKey,signature:signingKey?'ed25519':'none',artifacts:artifacts.map(({name,bytes})=>({name,size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}))};
-const notes=`# Luoshu Computer ${version}\n\nLinux x64; Node.js 22+; protocol v${release.protocol_version}.\n\nSource: tag ${tag}, independent repository commit ${commit}. The source archive contains exactly the tracked public source at this commit, including source-export.json upstream provenance, with no Git history.\n\n${signingKey?'The original manifest bytes are signed with the supplied external Ed25519 key.':'Unsigned prerelease: no signing key was supplied. This bundle is not an authenticated automatic update source.'}\n\nThe GitHub bootstrap installer and GitHub-configured Computer clients verify the signed manifest using their pinned public key and follow only official GitHub asset redirects. Unsigned bundles are not accepted by these clients. The install.sh attachment is the pinned GitHub bootstrap installer. Custom static feeds use the original layout from dist/computer, with a matching manifest.sig and the archive at ${mirror.manifest.releases['linux-x64'].path}. Pin the trusted signing public key for a signed feed.\n\nCheck SHA256SUMS before installation. No repository creation, publication, or service changes are performed by this command.\n`;
+const notes=`# Luoshu Computer ${version}\n\nLinux x64; Node.js 22+; protocol v${release.protocol_version}.\n\nSource: tag ${tag}, independent repository commit ${commit}. The source archive contains exactly the tracked public source at this commit, including historical docs/provenance/source-import.json, with no Git history.\n\n${signingKey?'The original manifest bytes are signed with the supplied external Ed25519 key.':'Unsigned prerelease: no signing key was supplied. This bundle is not an authenticated automatic update source.'}\n\nThe GitHub bootstrap installer and GitHub-configured Computer clients verify the signed manifest using their pinned public key and follow only official GitHub asset redirects. Unsigned bundles are not accepted by these clients. The install.sh attachment is the pinned GitHub bootstrap installer. Custom static feeds use the original layout from dist/computer, with a matching manifest.sig and the archive at ${mirror.manifest.releases['linux-x64'].path}. Pin the trusted signing public key for a signed feed.\n\nCheck SHA256SUMS before installation. No repository creation, publication, or service changes are performed by this command.\n`;
 // All validation and artifact construction precedes writes. Only a recognized
 // stale signature is removed; Git metadata and unrelated files are never deleted.
 assertSourceUnchanged();

@@ -1,14 +1,22 @@
 {
-  "files": [],
-  "references": [
-    {
-      "path": "packages/protocol"
-    },
-    {
-      "path": "packages/config"
-    },
-    {
-      "path": "apps/worker"
-    }
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "composite": true,
+    "sourceMap": true,
+    "types": [
+      "node"
+    ],
+    "rootDir": "src",
+    "outDir": "dist/lib",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts"
   ]
 }

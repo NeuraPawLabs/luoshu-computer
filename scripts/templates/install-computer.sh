@@ -48,7 +48,9 @@ if [ "${1:-}" = 'daemon' ]; then
     : > "$attempted"
   fi
 fi
-exec "${ROOT}/current/runtime/node" "${ROOT}/current/app/apps/worker/dist/computer-main.js" "$@"
+entry="${ROOT}/current/app/dist/main.js"
+[ -f "$entry" ] || entry="${ROOT}/current/app/apps/worker/dist/computer-main.js"
+exec "${ROOT}/current/runtime/node" "$entry" "$@"
 LAUNCHER
 chmod 0755 "${BIN_DIR}/luoshu-computer"
 echo "洛书设备端 ${version} 已安装。请运行："

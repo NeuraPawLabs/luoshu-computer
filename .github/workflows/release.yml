@@ -44,7 +44,7 @@ jobs:
           printf 'XDG_RUNTIME_DIR=%s\n' "$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
           printf 'DBUS_SESSION_BUS_ADDRESS=%s\n' "$DBUS_SESSION_BUS_ADDRESS" >> "$GITHUB_ENV"
           test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
-          node --input-type=module -e "await (await import('./apps/worker/dist/agent-engines/native-systemd-supervisor.js')).assertSystemdUserAvailable()"
+          node --input-type=module -e "await (await import('./dist/lib/engines/native-systemd-supervisor.js')).assertSystemdUserAvailable()"
           systemd-run --user --quiet --pipe --wait --collect --service-type=exec --expand-environment=no /usr/bin/env -i /bin/true
       - run: npm run lint
       - run: npm test

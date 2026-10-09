@@ -40,12 +40,33 @@ npm run test:package
 
 The self-contained Linux x64 output is `dist/computer/`. Packaging includes the current Node binary, native modules and licenses, and must run on Linux x64. Set `LUOSHU_NODE_LICENSE_FILE` if the Node distribution's LICENSE cannot be found automatically.
 
-Local/protocol tests do not claim to validate production Core or real model quality. Protocol changes must pass tests in both repositories before release. Initial source provenance is recorded in `source-export.json`.
+Local/protocol tests do not claim to validate production Core or real model quality. Protocol changes must pass tests in both repositories before release. Initial source provenance is recorded in `docs/provenance/source-import.json`.
 
 ## Signed releases
 
-GitHub Actions automatically builds and signs a version tag using the **LUOSHU_RELEASE_SIGNING_KEY** repository Secret, then publishes a formal Release. The Secret must match the public key in `release-public-key.pem` and the installer. Missing/mismatched keys stop publication; private keys are never committed or uploaded as release assets. See [Release procedure](RELEASE.md) for one-time configuration, backup and tag commands.
+GitHub Actions automatically builds and signs a version tag using the **LUOSHU_RELEASE_SIGNING_KEY** repository Secret, then publishes a formal Release. The Secret must match the public key in `release-public-key.pem` and the installer. Missing/mismatched keys stop publication; private keys are never committed or uploaded as release assets. See [Release procedure](docs/releasing.md) for one-time configuration, backup and tag commands.
 
 Explicit local unsigned development bundles can still be prepared with `npm run release:prepare`; they are prereleases and cannot be installed through the signed GitHub installer.
 
-See [Contributing](CONTRIBUTING.md), [Compatibility](COMPATIBILITY.md) and [Security](SECURITY.md).
+See [Contributing](CONTRIBUTING.md), [Compatibility](docs/compatibility.md) and [Security](SECURITY.md).
+
+## Repository layout
+
+```text
+src/
+  main.ts       Computer CLI entry
+  cli/          Setup, service lifecycle, diagnostics, updates
+  runtime/      Transport, task execution, delivery, local state and Git
+  engines/      Native Agent sessions and supervised processes
+  development/  Directory access and interactive development sessions
+  maintenance/  Authorized repository maintenance
+  protocol/     Core/device wire schemas, protocol v8
+  shared/       Security, execution budgets and release validation
+tests/         Behavioral suites grouped by module
+scripts/       Runtime packaging, signing, publishing and installers
+docs/          Compatibility, release procedure and import provenance
+```
+
+The root package owns all dependencies and the application version; there are no workspaces. `npm run build` emits `dist/lib`, and `npm run package` produces an archive containing `app/dist/main.js`, production dependencies and a bundled Node runtime. `npm run dev -- status` runs the public CLI from source. The low-level Worker CLI remains available through `npm run worker -- agents`.
+
+The protocol directory is an explicit boundary: it may import Zod and Node utilities but not device runtime modules. Compare protocol changes with Core's `packages/protocol/src` before release. Historical import hashes describe the original split, not the current file layout. Source release archives are made directly from the verified tagged Git tree; no secondary source-export tree is generated.

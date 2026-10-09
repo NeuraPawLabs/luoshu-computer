@@ -4,20 +4,20 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {createComputerArchive} from './computer-archive.mjs';
 import {copyComputerNodeRuntime} from './computer-node-runtime.mjs';
-import {PROTOCOL_VERSION} from '@luoshu/protocol';
-import {COMPUTER_VERSION} from '../apps/worker/dist/computer/version.js';
+import {PROTOCOL_VERSION} from '../dist/lib/protocol/index.js';
+import {COMPUTER_VERSION} from '../dist/lib/cli/version.js';
 
 const root = resolve(import.meta.dirname, '..');
 const output = resolve(root, 'dist/computer');
-const version = JSON.parse(readFileSync(resolve(root, 'apps/worker/package.json'), 'utf8')).version;
+const version = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
 if(version!==COMPUTER_VERSION)throw Error('Build the current Worker version before packaging Computer');
 if(process.platform!=='linux'||process.arch!=='x64')throw Error('Computer release packaging supports only Linux x64');
 const staging = resolve(root, 'dist/.computer-staging/linux-x64');
 rmSync(output, { recursive: true, force: true });
 rmSync(staging, { recursive: true, force: true });
 mkdirSync(staging, { recursive: true });
-execFileSync(process.execPath, [resolve(root, 'scripts/package-runtime.mjs'), 'worker'], { cwd: root, stdio: 'pipe' });
-cpSync(resolve(root, 'dist/worker'), join(staging, 'app'), { recursive: true });
+execFileSync(process.execPath, [resolve(root, 'scripts/package-runtime.mjs')], { cwd: root, stdio: 'pipe' });
+cpSync(resolve(root, 'dist/runtime'), join(staging, 'app'), { recursive: true });
 execFileSync('npm', ['ci', '--omit=dev', '--offline', '--no-audit', '--no-fund'], { cwd: join(staging, 'app'), stdio: 'pipe', timeout: 120_000 });
 
 function flattenSymlinks(root) {
@@ -40,9 +40,9 @@ function flattenSymlinks(root) {
 // updater to safely validate and extract it.
 flattenSymlinks(join(staging, 'app'));
 copyComputerNodeRuntime(staging);
-cpSync(resolve(root,'apps/worker/LICENSE'),join(staging,'LICENSE'));
+cpSync(resolve(root,'LICENSE'),join(staging,'LICENSE'));
 mkdirSync(join(staging, 'bin'), { recursive: true });
-writeFileSync(join(staging, 'bin/luoshu-computer'), `#!/bin/sh\nset -eu\nSELF=$(readlink -f -- "$0")\nROOT=$(CDPATH= cd -- "$(dirname -- "$SELF")/.." && pwd)\nexec "$ROOT/runtime/node" "$ROOT/app/apps/worker/dist/computer-main.js" "$@"\n`, { mode: 0o755 });
+writeFileSync(join(staging, 'bin/luoshu-computer'), `#!/bin/sh\nset -eu\nSELF=$(readlink -f -- "$0")\nROOT=$(CDPATH= cd -- "$(dirname -- "$SELF")/.." && pwd)\nexec "$ROOT/runtime/node" "$ROOT/app/dist/main.js" "$@"\n`, { mode: 0o755 });
 const releaseDir = join(output, 'releases', version);
 mkdirSync(releaseDir, { recursive: true });
 const archive = join(releaseDir, 'linux-x64.tar.gz');

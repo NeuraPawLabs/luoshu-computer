@@ -1,7 +1,7 @@
 import {readFileSync,writeFileSync,renameSync,rmSync,realpathSync} from 'node:fs';
 import {resolve,join,sep} from 'node:path';
 import {createPrivateKey,sign,randomUUID} from 'node:crypto';
-import {validateComputerRelease} from './computer-release.mjs';
+import {validateComputerRelease} from '../dist/lib/shared/release-validation.js';
 
 const args=process.argv.slice(2),options={};
 for(let index=0;index<args.length;index+=2){

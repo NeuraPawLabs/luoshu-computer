@@ -1,0 +1,11 @@
+import { constants } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp,writeFile,unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { expect,test,vi } from 'vitest';
+const injection=vi.hoisted(()=>({shortReads:false,fifo:false}));
+vi.mock('node:fs/promises',async importOriginal=>{const actual=await importOriginal<typeof import('node:fs/promises')>();return{...actual,open:async(path:string,flags:number)=>{if(injection.fifo&&!(flags&constants.O_DIRECTORY)){await actual.unlink(path);const resolved=path.startsWith('/proc/self/fd/')?await actual.realpath(path.slice(0,path.lastIndexOf('/')))+path.slice(path.lastIndexOf('/')):path;execFileSync('mkfifo',[resolved]);if(!(flags&constants.O_NONBLOCK))throw new Error('Unsafe blocking open would hang on FIFO');}const handle=await actual.open(path,flags);if(injection.shortReads){const read=handle.read.bind(handle);handle.read=((buffer:Buffer,offset:number,length:number,position:number)=>read(buffer,offset,Math.min(length,2),position)) as typeof handle.read;}return handle;}};});
+import { collectOutputFiles } from '../../src/runtime/files.js';
+test('collects the entire file when filesystem reads are shorter than the requested buffer',async()=>{const dir=await mkdtemp(join(tmpdir(),'luoshu-partial-read-'));await writeFile(join(dir,'answer.txt'),'entire answer');injection.shortReads=true;try{expect((await collectOutputFiles(dir))[0]?.content_base64).toBe(Buffer.from('entire answer').toString('base64'));}finally{injection.shortReads=false;}});
+test('an output changed to a FIFO between listing and opening is rejected without blocking',async()=>{const dir=await mkdtemp(join(tmpdir(),'luoshu-fifo-'));await writeFile(join(dir,'answer.txt'),'answer');injection.fifo=true;try{await expect(collectOutputFiles(dir)).rejects.toThrow(/regular/);}finally{injection.fifo=false;await unlink(join(dir,'answer.txt'));}});

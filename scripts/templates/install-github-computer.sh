@@ -122,7 +122,9 @@ if [ "${1:-}" = daemon ]; then
     : > "$attempted"
   fi
 fi
-exec "${ROOT}/current/runtime/node" "${ROOT}/current/app/apps/worker/dist/computer-main.js" "$@"
+entry="${ROOT}/current/app/dist/main.js"
+[ -f "$entry" ] || entry="${ROOT}/current/app/apps/worker/dist/computer-main.js"
+exec "${ROOT}/current/runtime/node" "$entry" "$@"
 LAUNCHER
 chmod 0755 "$work/launcher"
 mv "$work/launcher" "${BIN_DIR}/luoshu-computer"

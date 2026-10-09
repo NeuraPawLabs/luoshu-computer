@@ -8,4 +8,4 @@ Include affected version, operating system, protocol version, reproducible steps
 
 Independent automatic update feeds require a locally pinned Ed25519 public key, exact manifest bytes, compatible protocol, validated archive paths, size bounds and SHA-256. Static feeds reject redirects; GitHub downloads permit only HTTPS redirects to official GitHub asset domains. An unsigned GitHub prerelease is for manual inspection/download, not a trusted automatic update feed. A signature authenticates the manifest and its referenced archive; the installer itself is code obtained from the selected trusted source.
 
-Only Linux x64 is currently packaged. Released versions and compatibility are documented in [COMPATIBILITY.md](COMPATIBILITY.md); no support or security-maintenance promise for arbitrary historical versions is implied.
+Only Linux x64 is currently packaged. Released versions and compatibility are documented in [compatibility](docs/compatibility.md); no support or security-maintenance promise for arbitrary historical versions is implied.
