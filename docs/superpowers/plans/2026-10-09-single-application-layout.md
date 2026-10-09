@@ -15,8 +15,10 @@
 - [x] Remove duplicate repository templates and package-computer-source.mjs; move source-export.json to docs/provenance/source-import.json. Update exact tagged-source release whitelist and its fixtures to the root layout, keeping path/key/Git snapshot protections.
 - [x] Update workflows/docs/package tests; run npm ci, npm run build, npm run lint, npm test, npm run package, npm run test:package.
 - [x] Review diff and imports, validate the extracted binary launcher, and commit the application layout.
-- [ ] Prepare a signed release against an unpublished local tag and smoke-install with the real pinned key; record the result. No remote tag rewrites.
+- [x] Prepare a signed release against an unpublished local tag and smoke-install with the real pinned key; record the result. No remote tag rewrites.
 
 **Behavioral evidence:** Package test extracts and invokes the flat CLI with bundled Node. Launcher tests execute rollback fixtures in both layouts. Existing 1031 runtime/protocol tests and signing/install corruption tests must remain passing. Source archive tests must still prove exact tagged bytes and rejection of private files/keys, symlinks, modified worktrees, mismatched tags and keys.
 
 **Validation before commit:** fresh npm ci, clean build and lint; 106 Vitest files / 1032 tests; 43 packaging/signing/installer tests; extracted bundled launcher works outside the checkout; wire v8 source and public key unchanged.
+
+**Release smoke:** Signed v0.1.0 manifest and all artifact digests verified using the existing pinned public key; the real GitHub installer consumed the local signed assets and its installed flat CLI ran successfully. Archive packaging retains only a generated historical entry forwarder for old updater launchers, with no duplicate runtime or workspace package.

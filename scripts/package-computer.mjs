@@ -18,6 +18,11 @@ rmSync(staging, { recursive: true, force: true });
 mkdirSync(staging, { recursive: true });
 execFileSync(process.execPath, [resolve(root, 'scripts/package-runtime.mjs')], { cwd: root, stdio: 'pipe' });
 cpSync(resolve(root, 'dist/runtime'), join(staging, 'app'), { recursive: true });
+// Pre-migration updaters write a launcher with this historical entry path.
+// Forward it to the single implementation without shipping workspace packages.
+const legacyEntry=join(staging,'app/apps/worker/dist/computer-main.js');
+mkdirSync(join(legacyEntry,'..'),{recursive:true});
+writeFileSync(legacyEntry,"await import('../../../dist/main.js');\n");
 execFileSync('npm', ['ci', '--omit=dev', '--offline', '--no-audit', '--no-fund'], { cwd: join(staging, 'app'), stdio: 'pipe', timeout: 120_000 });
 
 function flattenSymlinks(root) {

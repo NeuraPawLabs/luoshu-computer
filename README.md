@@ -67,6 +67,6 @@ scripts/       Runtime packaging, signing, publishing and installers
 docs/          Compatibility, release procedure and import provenance
 ```
 
-The root package owns all dependencies and the application version; there are no workspaces. `npm run build` emits `dist/lib`, and `npm run package` produces an archive containing `app/dist/main.js`, production dependencies and a bundled Node runtime. `npm run dev -- status` runs the public CLI from source. The low-level Worker CLI remains available through `npm run worker -- agents`.
+The root package owns all dependencies and the application version; there are no workspaces. `npm run build` emits `dist/lib`, and `npm run package` produces an archive containing `app/dist/main.js`, production dependencies and a bundled Node runtime. A generated entry forwarder supports launchers written by pre-migration updaters; no workspace implementation is included. `npm run dev -- status` runs the public CLI from source. The low-level Worker CLI remains available through `npm run worker -- agents`.
 
 The protocol directory is an explicit boundary: it may import Zod and Node utilities but not device runtime modules. Compare protocol changes with Core's `packages/protocol/src` before release. Historical import hashes describe the original split, not the current file layout. Source release archives are made directly from the verified tagged Git tree; no secondary source-export tree is generated.

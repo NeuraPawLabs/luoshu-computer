@@ -14,4 +14,4 @@ The Core database and scheduler remain in the parent repository; this independen
 
 The parent repository is `NeuraPawLabs/luoshu`; the initial exact import commit and content hashes are in `provenance/source-import.json`. After independent development, synchronize by reviewing changes against the parent compatibility snapshot. Do not delete or replace a user's running database or identity to make a version appear compatible.
 
-The independent application uses one root package and `src/protocol` as its wire contract boundary. Runtime archives use `app/dist/main.js`; installed launchers retain a fallback for legacy monorepo builds during rollback. Device identity and state paths are unchanged.
+The independent application uses one root package and `src/protocol` as its wire contract boundary. Runtime archives use `app/dist/main.js`. A generated historical entry forwards old updater launchers to this flat entry; it contains no second implementation or workspace dependency. New launchers also retain a fallback for legacy builds during rollback. Device identity and state paths are unchanged.

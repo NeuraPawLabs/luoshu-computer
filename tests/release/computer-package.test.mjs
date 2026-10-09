@@ -27,7 +27,7 @@ test('computer package contains a Linux release and manifest digest', async () =
   assert.ok(existsSync(join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))));
   const listing = execFileSync('tar', ['-tzf', join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))], { encoding: 'utf8' });
   assert.match(listing, /app\/node_modules\/ws\/package\.json/);
-  assert.doesNotMatch(listing, /app\/(?:apps|packages)\//);
+  assert.doesNotMatch(listing, /app\/packages\//);
   assert.match(listing, /app\/dist\/main\.js/);
   const detailed = execFileSync('tar', ['-tvzf', join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))], { encoding: 'utf8' });
   assert.doesNotMatch(detailed, /(^|\n)l[rwx-]{9}\s/);
@@ -79,6 +79,10 @@ test('installer consumes a signed manifest with a pinned public key and activate
     writeFileSync(join(state, 'config.json'), JSON.stringify({ worker_id: 'worker_1', url: 'http://127.0.0.1:8080', name: 'desk', capacity: 1 }));
     const status = await exec(join(home, '.local/bin/luoshu-computer'), ['status'], { env: { ...process.env, HOME: home }, timeout: 30_000 });
     assert.equal(JSON.parse(status.stdout).worker_id, 'worker_1');
+    // A pre-migration updater rewrites the launcher to this historical entry.
+    // Execute it with the real bundled Node to prove old clients can upgrade.
+    const legacy = await exec(join(home, '.local/share/luoshu-computer/current/runtime/node'), [join(home, '.local/share/luoshu-computer/current/app/apps/worker/dist/computer-main.js'), 'status'], {env:{...process.env,HOME:home},timeout:30_000});
+    assert.equal(JSON.parse(legacy.stdout).worker_id, 'worker_1');
     const installed=readlinkSync(join(home,'.local/share/luoshu-computer/current'));
     signature.fill(0);
     await assert.rejects(exec('sh',[join(computerRoot,'install.sh')],{env:{...process.env,HOME:home,LUOSHU_RELEASE_KEY:keyPath,LUOSHU_BASE_URL:`http://127.0.0.1:${address.port}`},timeout:30000}),/signature verification failed/);
