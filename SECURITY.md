@@ -6,6 +6,6 @@ For suspected vulnerabilities, use this repository's **Security → Report a vul
 
 Include affected version, operating system, protocol version, reproducible steps and impact, using synthetic data where possible. Never send device identity private keys, model credentials or a release signing key.
 
-Independent automatic update feeds require a locally pinned Ed25519 public key, exact manifest bytes, compatible protocol, same-origin paths, no redirects, size bounds and SHA-256. An unsigned GitHub prerelease is for manual inspection/download, not a trusted automatic update feed. A signature authenticates the manifest and its referenced archive; the installer itself is code obtained from the selected trusted source.
+Independent automatic update feeds require a locally pinned Ed25519 public key, exact manifest bytes, compatible protocol, validated archive paths, size bounds and SHA-256. Static feeds reject redirects; GitHub downloads permit only HTTPS redirects to official GitHub asset domains. An unsigned GitHub prerelease is for manual inspection/download, not a trusted automatic update feed. A signature authenticates the manifest and its referenced archive; the installer itself is code obtained from the selected trusted source.
 
 Only Linux x64 is currently packaged. Released versions and compatibility are documented in [COMPATIBILITY.md](COMPATIBILITY.md); no support or security-maintenance promise for arbitrary historical versions is implied.

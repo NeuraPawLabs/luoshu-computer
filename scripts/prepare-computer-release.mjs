@@ -47,9 +47,9 @@ if(tagCommit!==commit)throw Error(`Version tag ${tag} must point at HEAD`);
 
 // Fail closed on repositories that still contain private monorepo material.
 // Only the independently exported Computer source and repository facilities ship.
-const rootFiles=new Set(['.gitignore','LICENSE','README.md','CONTRIBUTING.md','SECURITY.md','COMPATIBILITY.md','RELEASING.md','RELEASE.md','package.json','package-lock.json','tsconfig.json','tsconfig.base.json','vitest.config.ts','source-export.json']);
-const scripts=new Set(['package-runtime.mjs','package-computer.mjs','computer-archive.mjs','computer-release.mjs','computer-node-runtime.mjs','sign-computer-release.mjs','package-computer-source.mjs','prepare-computer-release.mjs','publish-computer-release.mjs']);
-const tests=new Set(['computer-public-release.test.mjs','computer-source.test.mjs','computer-package.test.mjs','computer-signing.test.mjs','computer-archive.test.mjs','computer-publish.test.mjs']);
+const rootFiles=new Set(['.gitignore','LICENSE','README.md','CONTRIBUTING.md','SECURITY.md','COMPATIBILITY.md','RELEASING.md','RELEASE.md','package.json','package-lock.json','tsconfig.json','tsconfig.base.json','vitest.config.ts','source-export.json','release-public-key.pem']);
+const scripts=new Set(['package-runtime.mjs','package-computer.mjs','computer-archive.mjs','computer-release.mjs','computer-node-runtime.mjs','sign-computer-release.mjs','package-computer-source.mjs','prepare-computer-release.mjs','publish-computer-release.mjs','prepare-signed-computer-release.mjs']);
+const tests=new Set(['computer-public-release.test.mjs','computer-source.test.mjs','computer-package.test.mjs','computer-signing.test.mjs','computer-archive.test.mjs','computer-publish.test.mjs','computer-github-install.test.mjs','computer-ci-signing.test.mjs']);
 function publicPath(path){
  if(rootFiles.has(path))return true;
  const parts=path.split('/');
@@ -122,12 +122,12 @@ try{
 const artifacts=[
  {name:sourceName,bytes:sourceArchive,mode:0o644},
  {name:binaryName,bytes:archive,mode:0o644},
- {name:'install.sh',bytes:mirror.files.find(file=>file.path==='install.sh').bytes,mode:0o755},
+ {name:'install.sh',bytes:sourceFiles.find(file=>file.path==='scripts/templates/install-github-computer.sh')?.bytes??mirror.files.find(file=>file.path==='install.sh').bytes,mode:0o755},
  {name:'manifest.json',bytes:manifest,mode:0o644},
 ];
 if(signingKey)artifacts.push({name:'manifest.sig',bytes:sign(null,manifest,signingKey),mode:0o644});
 const release={version,tag,commit,protocol_version:mirror.manifest.protocol_version,prerelease:!signingKey,signature:signingKey?'ed25519':'none',artifacts:artifacts.map(({name,bytes})=>({name,size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}))};
-const notes=`# Luoshu Computer ${version}\n\nLinux x64; Node.js 22+; protocol v${release.protocol_version}.\n\nSource: tag ${tag}, independent repository commit ${commit}. The source archive contains exactly the tracked public source at this commit, including source-export.json upstream provenance, with no Git history.\n\n${signingKey?'The original manifest bytes are signed with the supplied external Ed25519 key.':'Unsigned prerelease: no signing key was supplied. This bundle is not an authenticated automatic update source.'}\n\nGitHub Release attachments are for manual download only. Their redirects are rejected by Computer automatic updates. To use automatic updates, host the unchanged install.sh, manifest.json, optional manifest.sig, and archive at their /computer/ paths on a static HTTPS feed (the normalized binary attachment must be served at ${mirror.manifest.releases['linux-x64'].path}), or use an explicitly configured Core mirror. Pin the trusted signing public key for a signed feed.\n\nCheck SHA256SUMS before installation. No repository creation, publication, or service changes are performed by this command.\n`;
+const notes=`# Luoshu Computer ${version}\n\nLinux x64; Node.js 22+; protocol v${release.protocol_version}.\n\nSource: tag ${tag}, independent repository commit ${commit}. The source archive contains exactly the tracked public source at this commit, including source-export.json upstream provenance, with no Git history.\n\n${signingKey?'The original manifest bytes are signed with the supplied external Ed25519 key.':'Unsigned prerelease: no signing key was supplied. This bundle is not an authenticated automatic update source.'}\n\nThe GitHub bootstrap installer and GitHub-configured Computer clients verify the signed manifest using their pinned public key and follow only official GitHub asset redirects. Unsigned bundles are not accepted by these clients. The install.sh attachment is the pinned GitHub bootstrap installer. Custom static feeds use the original layout from dist/computer, with a matching manifest.sig and the archive at ${mirror.manifest.releases['linux-x64'].path}. Pin the trusted signing public key for a signed feed.\n\nCheck SHA256SUMS before installation. No repository creation, publication, or service changes are performed by this command.\n`;
 // All validation and artifact construction precedes writes. Only a recognized
 // stale signature is removed; Git metadata and unrelated files are never deleted.
 assertSourceUnchanged();

@@ -15,7 +15,7 @@ const execFileAsync = promisify(execFile);
 const TOOLS = { git: ['--version'], node: ['--version'], codex: ['--version'], opencode: ['--version'] } as const;
 
 export interface EnvironmentOptions { name: string; capacity: number; computerVersion?: string; probe?: (tool: keyof typeof TOOLS) => Promise<string | undefined>; agentPaths?: Partial<Record<AgentId,string>>; supervisorAvailable?:()=>Promise<boolean>; nativeAudit?:()=>Promise<'ready'|'login_required'|'permissions_unavailable'|'protocol_unsupported'> }
-export interface WorkerConfig { release_url?: string; release_public_key?: string; worker_id: string; url: string; name: string; capacity: number; agent_paths?: Partial<Record<AgentId,string>>; development_roots?: string[]; development_roots_revision?: string; maintenance_roots?: string[]; codex_sandbox?: CodexSandboxMode; codex_settings_revision?: string; worker_config_revision?: string }
+export interface WorkerConfig { release_repository?: string; release_url?: string; release_public_key?: string; worker_id: string; url: string; name: string; capacity: number; agent_paths?: Partial<Record<AgentId,string>>; development_roots?: string[]; development_roots_revision?: string; maintenance_roots?: string[]; codex_sandbox?: CodexSandboxMode; codex_settings_revision?: string; worker_config_revision?: string }
 export interface WorkerIdentity { publicKey: string; privateKey: string }
 
 async function defaultProbe(tool: keyof typeof TOOLS): Promise<string | undefined> {
@@ -116,7 +116,7 @@ export async function loadIdentity(stateDir: string): Promise<WorkerIdentity> {
 export function validateWorkerConfig(value:unknown):WorkerConfig {
  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Invalid Worker configuration');
  const config=value as Record<string,unknown>;
- if(Object.keys(config).some(k=>!['release_url','release_public_key','worker_id','url','name','capacity','agent_paths','development_roots','development_roots_revision','maintenance_roots','codex_sandbox','codex_settings_revision','worker_config_revision'].includes(k)))throw new Error('Incompatible Worker configuration; join again without local Agent authorization');
+ if(Object.keys(config).some(k=>!['release_repository','release_url','release_public_key','worker_id','url','name','capacity','agent_paths','development_roots','development_roots_revision','maintenance_roots','codex_sandbox','codex_settings_revision','worker_config_revision'].includes(k)))throw new Error('Incompatible Worker configuration; join again without local Agent authorization');
  validateComputerReleaseSource(config);
  if(config.codex_sandbox!==undefined)codexSandboxModeSchema.parse(config.codex_sandbox);
  if(config.codex_settings_revision!==undefined&&typeof config.codex_settings_revision!=='string')throw Error('Invalid Codex settings revision');

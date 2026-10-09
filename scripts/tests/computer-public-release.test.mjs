@@ -21,6 +21,7 @@ function fixture(t){
  put('package.json',JSON.stringify({name:'luoshu-computer-source',version:'0.1.6',license:'MIT',type:'module',scripts:{build:'node scripts/package-runtime.mjs',package:'node scripts/package-computer.mjs'}}));
  put('apps/worker/package.json',JSON.stringify({version:'0.1.6',license:'MIT'}));
  put('apps/worker/src/example.ts','export const publicValue = 42;\n');
+ put('scripts/templates/install-github-computer.sh','#!/bin/sh\necho verified-github-bootstrap\n');
  put('source-export.json',JSON.stringify({format:'luoshu-computer-source-v1',upstream:{commit:'a'.repeat(40)}})+'\n');
  const archive=Buffer.from('built:export const publicValue = 42;\n');put('dist/computer/releases/0.1.6/linux-x64.tar.gz',archive);
  const manifest=Buffer.from(JSON.stringify({version:'0.1.6',protocol_version:8,releases:{'linux-x64':{path:'/computer/releases/0.1.6/linux-x64.tar.gz',sha256:digest(archive),size:archive.length}}},null,2)+'\n');
@@ -51,6 +52,7 @@ test('unsigned release snapshots exactly tracked public source and checksums ori
  assert.equal(release.version,'0.1.6');assert.equal(release.tag,'v0.1.6');assert.equal(release.commit,f.git('rev-parse','HEAD'));assert.equal(release.protocol_version,8);assert.equal(release.prerelease,true);assert.equal(release.signature,'none');
  assert.deepEqual(readFileSync(join(f.output,'manifest.json')),f.manifest);assert.deepEqual(readFileSync(join(f.output,'luoshu-computer-0.1.6-linux-x64.tar.gz')),f.archive);
  assert.equal(existsSync(join(f.output,'manifest.sig')),false);
+ assert.equal(readFileSync(join(f.output,'install.sh'),'utf8'),'#!/bin/sh\necho verified-github-bootstrap\n');
  const archive=join(f.output,'luoshu-computer-source-0.1.6.tar.gz');
  const unpack=join(f.parent,'unpacked');mkdirSync(unpack);execFileSync('tar',['-xzf',archive,'-C',unpack]);
  const prefix='luoshu-computer-0.1.6/';
@@ -59,8 +61,7 @@ test('unsigned release snapshots exactly tracked public source and checksums ori
  for(const path of entries)assert.deepEqual(readFileSync(join(unpack,prefix,path)),execFileSync('git',['show',`HEAD:${path}`],{cwd:f.root}));
  const sums=readFileSync(join(f.output,'SHA256SUMS'),'utf8');
  for(const artifact of release.artifacts){const bytes=readFileSync(join(f.output,artifact.name));assert.equal(bytes.length,artifact.size);assert.equal(digest(bytes),artifact.sha256);assert.ok(sums.includes(`${artifact.sha256}  ${artifact.name}\n`));}
- assert.match(readFileSync(join(f.output,'release-notes.md'),'utf8'),/manual download/i);
- assert.match(readFileSync(join(f.output,'release-notes.md'),'utf8'),/redirect/i);
+ assert.equal(release.artifacts.some(artifact=>artifact.name==='manifest.sig'),false);
 });
 
 test('release rejects tracked edits and relevant untracked source without creating output',t=>{

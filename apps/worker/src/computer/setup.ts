@@ -1,5 +1,6 @@
 import type {CodexSandboxMode} from '@luoshu/protocol';
 import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import {join} from 'node:path';
 import { pairWorker } from '../client.js';
 import {validateComputerReleaseSource} from './releases.js';
 import type { ComputerPaths } from './paths.js';
@@ -22,15 +23,23 @@ function validateServer(server: string): void {
 export async function setupComputer(options: SetupOptions): Promise<SetupResult> {
   validateServer(options.server);
   if ((options.releaseUrl !== undefined) !== (options.releaseKey !== undefined)) throw new Error('Computer release URL and key file must be specified together');
-  const releasePublicKey = options.releaseKey === undefined ? undefined : await readFile(options.releaseKey, 'utf8');
-  validateComputerReleaseSource({release_url: options.releaseUrl, release_public_key: releasePublicKey});
+  let releasePublicKey = options.releaseKey === undefined ? undefined : await readFile(options.releaseKey, 'utf8');
+  let releaseRepository: string | undefined;
+  if (options.releaseUrl === undefined) {
+    try {
+      const source = JSON.parse(await readFile(join(options.paths.root,'release-source.json'),'utf8'));
+      if (!source || typeof source !== 'object' || Array.isArray(source) || Object.keys(source).some(key=>!['repository','public_key'].includes(key)) || typeof source.repository !== 'string' || typeof source.public_key !== 'string') throw Error('Invalid local Computer release source');
+      releaseRepository = source.repository; releasePublicKey = source.public_key;
+    } catch (error) {if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;}
+  }
+  validateComputerReleaseSource({release_url: options.releaseUrl, release_repository:releaseRepository, release_public_key: releasePublicKey});
   const name = options.name.trim();
   if (!name || name.length > 100) throw new Error('Device name must contain 1 to 100 characters');
   const capacity = options.capacity ?? 1;
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 16) throw new Error('Capacity must be an integer from 1 to 16');
   const pair = options.pair ?? pairWorker;
   const result = await pair({ stateDir: options.paths.state, url: options.server, code: options.code, name, capacity,
-    releaseUrl:options.releaseUrl, releasePublicKey, codexSandbox:options.codexSandbox, developmentRoots: options.developmentRoots, maintenanceRoots: options.maintenanceRoot ? [options.maintenanceRoot] : [] });
+    releaseUrl:options.releaseUrl, releaseRepository, releasePublicKey, codexSandbox:options.codexSandbox, developmentRoots: options.developmentRoots, maintenanceRoots: options.maintenanceRoot ? [options.maintenanceRoot] : [] });
   await (options.mkdir ?? mkdir)(options.paths.state, { recursive: true, mode: 0o700 });
   const io: ServiceFileOps = { writeFile: options.writeFile, mkdir: options.mkdir, chmod: options.chmod, rename: options.rename };
   await installUserService(options.paths, options.run, io);

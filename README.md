@@ -1,61 +1,51 @@
 # Luoshu Computer
 
-MIT-licensed local execution client for Luoshu. This source tree contains the device runtime, shared wire protocol and common utilities. It contains no Core or Console implementation. Dependencies retain their own licenses.
+MIT-licensed local execution client for [Luoshu](https://github.com/NeuraPawLabs/luoshu). Device runtime, wire protocol and local tests live in this independent repository; Core and Console are maintained separately. Dependencies retain their own licenses.
 
-The supported release target is Linux x64 with systemd user services. Node.js 22+ and npm are required to build. Codex/OpenCode are separately installed and authenticated by the user; they are not bundled here.
+The supported target is Linux x64 with systemd user services. Codex/OpenCode are installed and authenticated separately by each user.
 
-The public repository is intended as `NeuraPawLabs/luoshu-computer`. Initial source provenance is recorded in `source-export.json`; the history imported here contains only the approved MIT source subset. See [Contributing](CONTRIBUTING.md), [Compatibility](COMPATIBILITY.md), [Security](SECURITY.md) and [Release procedure](RELEASE.md).
+## Install from GitHub
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/NeuraPawLabs/luoshu-computer/main/scripts/templates/install-github-computer.sh | sh
+luoshu-computer setup --server https://console.example --code '<pairing-code>' --name 'My computer'
+luoshu-computer status
+luoshu-computer doctor
+```
+
+Get a pairing code from your Luoshu instance and approve the device after registration. The installer needs curl, OpenSSL with Ed25519 support, Python 3, tar and flock; Node.js is bundled in the release. No GitHub login or user-managed signing key is needed.
+
+The installer uses the repository's latest signed formal GitHub Release. It verifies the manifest against its embedded public key before downloading the archive, then checks the protocol, platform, digest, size and extraction paths. `LUOSHU_RELEASE_TAG=v0.1.0` selects a particular release. An absent or invalid signature stops installation and preserves existing state.
+
+```sh
+luoshu-computer update
+```
+
+Setup remembers the installer-verified GitHub repository and signing key locally. CLI and daemon updates verify signed GitHub Releases with this pinned key and accept only official GitHub asset redirects. Active work defers updates; activation and startup rollback are atomic. Source/key settings are not sent to Core or editable from its control plane.
+
+For a trusted custom repository, set `LUOSHU_COMPUTER_REPOSITORY=owner/repository` and `LUOSHU_RELEASE_KEY=/trusted/public.pem` during installation. Static signed feeds are also supported with `setup --release-url https://downloads.example/computer --release-key /trusted/public.pem`. The manifest cannot replace the pinned trust key.
 
 ## Build and verify
+
+Node.js 22+ and npm are required to build:
 
 ```sh
 npm ci
 npm run build
+npm run lint
 npm test
 npm run package
 npm run test:package
 ```
 
-The self-contained release is written to `dist/computer/`. Packaging bundles the current Node binary and native modules and therefore must run on Linux x64. The Node distribution LICENSE must be present in its installation prefix; an explicit path can be provided through `LUOSHU_NODE_LICENSE_FILE`.
+The self-contained Linux x64 output is `dist/computer/`. Packaging includes the current Node binary, native modules and licenses, and must run on Linux x64. Set `LUOSHU_NODE_LICENSE_FILE` if the Node distribution's LICENSE cannot be found automatically.
 
-The main repository owns the Core side of the device protocol; this repository owns the device runtime and its local/protocol tests. Running these tests does not claim to validate a production Core or real model quality.
+Local/protocol tests do not claim to validate production Core or real model quality. Protocol changes must pass tests in both repositories before release. Initial source provenance is recorded in `source-export.json`.
 
-## Install from GitHub
+## Signed releases
 
-The public installer discovers the newest non-draft GitHub release, downloads its Linux x64 assets, verifies the published SHA256SUMS, and installs the Computer runtime:
+GitHub Actions automatically builds and signs a version tag using the **LUOSHU_RELEASE_SIGNING_KEY** repository Secret, then publishes a formal Release. The Secret must match the public key in `release-public-key.pem` and the installer. Missing/mismatched keys stop publication; private keys are never committed or uploaded as release assets. See [Release procedure](RELEASE.md) for one-time configuration, backup and tag commands.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/NeuraPawLabs/luoshu-computer/main/scripts/templates/install-github-computer.sh | sh
-luoshu-computer setup --server https://console.example --code '<pairing-code>' --name 'My computer'
-```
+Explicit local unsigned development bundles can still be prepared with `npm run release:prepare`; they are prereleases and cannot be installed through the signed GitHub installer.
 
-Set `LUOSHU_RELEASE_TAG=v0.1.0` to install a specific tag, or `LUOSHU_COMPUTER_REPOSITORY=owner/repository` for a trusted mirror. GitHub Release redirects are accepted by this bootstrap installer and the downloaded archive is still checked against the release checksums. Automatic signed-feed updates remain available through the separately configured `--release-url` and `--release-key` settings.
-
-## Signed independent updates
-
-Build an immutable release, then sign its original manifest bytes with an existing Ed25519 private key:
-
-```sh
-npm run sign -- --release dist/computer --key /secure/path/release-private.pem
-```
-
-The private key must be outside the release directory and never published. Serve `manifest.json`, `manifest.sig`, `install.sh` and `releases/` at a stable HTTPS directory such as `https://downloads.example/computer`. The public key is obtained and checked separately; the feed cannot replace its own trust key. Dynamic redirect download endpoints are unsupported.
-
-Install and pair with the independently verified public key:
-
-```sh
-curl -fsS --proto '=https' https://downloads.example/computer/install.sh -o install-computer.sh
-# Inspect the installer obtained from the trusted release source before running it.
-LUOSHU_BASE_URL=https://downloads.example LUOSHU_RELEASE_KEY=/trusted/path/release-public.pem sh install-computer.sh
-luoshu-computer setup --server https://console.example --code '<pairing-code>' --name 'My computer' --release-url https://downloads.example/computer --release-key /trusted/path/release-public.pem
-luoshu-computer status
-luoshu-computer doctor
-```
-
-The initial installer still comes from the HTTPS source you chose; signature verification authenticates the manifest and archive, not arbitrary installer code. Local release settings are not sent to Core or editable through its control plane. Existing clients without an independent source continue using their configured Core's `/computer/` mirror with SHA-256 integrity checks.
-
-CLI and daemon updates reject incompatible protocol versions and invalid signatures, archive paths, byte sizes or digests. Active work defers updates; existing atomic activation and rollback remain in place. Publishing a new manifest requires rebuilding and signing; do not replace archive bytes under an existing version.
-
-## Manual prerelease downloads
-
-On a clean version-tagged checkout, `npm run release:prepare` creates the exact source snapshot, Linux x64 binary, original manifest/installer, metadata and checksums in `dist/release-bundle/`. Without an explicitly supplied external Ed25519 key it produces an unsigned **prerelease**. Verify the release commit and SHA256SUMS before installing. GitHub attachment URLs redirect and are not automatic update feed URLs.
+See [Contributing](CONTRIBUTING.md), [Compatibility](COMPATIBILITY.md) and [Security](SECURITY.md).

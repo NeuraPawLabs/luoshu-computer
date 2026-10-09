@@ -21,9 +21,10 @@
     "package": "node scripts/package-computer.mjs",
     "package:source": "node scripts/package-computer-source.mjs",
     "sign": "node scripts/sign-computer-release.mjs",
-    "test:package": "node --test scripts/tests/computer-package.test.mjs scripts/tests/computer-signing.test.mjs scripts/tests/computer-archive.test.mjs scripts/tests/computer-public-release.test.mjs scripts/tests/computer-publish.test.mjs",
+    "test:package": "node --test scripts/tests/computer-package.test.mjs scripts/tests/computer-signing.test.mjs scripts/tests/computer-archive.test.mjs scripts/tests/computer-public-release.test.mjs scripts/tests/computer-publish.test.mjs scripts/tests/computer-github-install.test.mjs scripts/tests/computer-ci-signing.test.mjs",
     "release:prepare": "node scripts/prepare-computer-release.mjs",
-    "release:publish": "node scripts/publish-computer-release.mjs"
+    "release:publish": "node scripts/publish-computer-release.mjs",
+    "release:prepare:signed": "node scripts/prepare-signed-computer-release.mjs"
   },
   "devDependencies": {
     "@types/node": "26.5.1",

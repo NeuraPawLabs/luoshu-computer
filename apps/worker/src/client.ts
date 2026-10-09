@@ -248,9 +248,9 @@ export class WorkerClient {
   }
 }
 
-export async function pairWorker(options:{stateDir:string;url:string;code:string;name:string;capacity:number;codexPath?:string;opencodePath?:string;developmentRoots?:string[];maintenanceRoots?:string[];codexSandbox?:CodexSandboxMode;releaseUrl?:string;releasePublicKey?:string;fetchImpl?:typeof fetch}):Promise<{workerId:string;status:string}>{
+export async function pairWorker(options:{stateDir:string;url:string;code:string;name:string;capacity:number;codexPath?:string;opencodePath?:string;developmentRoots?:string[];maintenanceRoots?:string[];codexSandbox?:CodexSandboxMode;releaseUrl?:string;releaseRepository?:string;releasePublicKey?:string;fetchImpl?:typeof fetch}):Promise<{workerId:string;status:string}>{
  assertSecureUrl(options.url);
- validateComputerReleaseSource({release_url:options.releaseUrl,release_public_key:options.releasePublicKey});
+ validateComputerReleaseSource({release_url:options.releaseUrl,release_repository:options.releaseRepository,release_public_key:options.releasePublicKey});
  if(!Number.isInteger(options.capacity)||options.capacity<1||options.capacity>16)throw new Error('Capacity must be an integer from 1 to 16');
  const codexSandbox=codexSandboxModeSchema.parse(options.codexSandbox??'workspace-write');
  const developmentRoots=options.developmentRoots===undefined?undefined:validateDevelopmentRoots(options.developmentRoots);
@@ -262,6 +262,7 @@ export async function pairWorker(options:{stateDir:string;url:string;code:string
  const body=await response.json() as {worker_id:string;status:string};idSchema.parse(body.worker_id);if(body.status!=='pending')throw new Error('Invalid pairing response');
  await saveWorkerConfig(options.stateDir,{worker_id:body.worker_id,url:options.url,name:options.name,capacity:options.capacity,agent_paths:paths,
   ...(options.releaseUrl===undefined?{}:{release_url:options.releaseUrl,release_public_key:options.releasePublicKey}),
+  ...(options.releaseRepository===undefined?{}:{release_repository:options.releaseRepository,release_public_key:options.releasePublicKey}),
   ...(developmentRoots===undefined?{}:{development_roots:developmentRoots}),maintenance_roots:maintenanceRoots,codex_sandbox:codexSandbox});
  return{workerId:body.worker_id,status:body.status};
 }

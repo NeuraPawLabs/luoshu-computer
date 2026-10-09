@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,cpSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
-import {createHash} from 'node:crypto';
+import {join,resolve} from 'node:path';
+import {createHash,generateKeyPairSync,sign} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 
 function fixture(){
@@ -14,11 +14,12 @@ function fixture(){
  for(const name of names)writeFileSync(join(bundle,name),bytes);
  writeFileSync(join(bundle,'SHA256SUMS'),names.map(name=>`${sha256}  ${name}\n`).join(''));writeFileSync(join(bundle,'release-notes.md'),'Unsigned Computer prerelease\n');writeFileSync(join(bundle,'release.json'),JSON.stringify(manifest));
  writeFileSync(join(bin,'gh'),`#!/usr/bin/env node\nconst fs=require('fs');const args=process.argv.slice(2);fs.appendFileSync(process.env.TEST_GH_LOG,JSON.stringify(args)+'\\n');if(args[0]==='api')console.log(JSON.stringify(args[1].includes('/git/ref/')?{object:{type:'commit',sha:process.env.TEST_TAG_SHA||'a'.repeat(40)}}:{full_name:'NeuraPawLabs/luoshu-computer',private:false,permissions:{push:true}}));else if(args[0]==='release'&&args[1]==='view')process.exit(1);\n`,{mode:0o755});
- return{root,bundle,artifact,log,env:{...process.env,PATH:bin+':'+process.env.PATH,TEST_GH_LOG:log,GH_REPO:'NeuraPawLabs/luoshu-computer'}};
+ mkdirSync(join(root,'scripts'));const publisher=join(root,'scripts/publish-computer-release.mjs');cpSync(resolve('scripts/publish-computer-release.mjs'),publisher);const keys=generateKeyPairSync('ed25519');writeFileSync(join(root,'release-public-key.pem'),keys.publicKey.export({format:'pem',type:'spki'}));
+ return{root,bundle,artifact,log,publisher,keys,env:{...process.env,PATH:bin+':'+process.env.PATH,TEST_GH_LOG:log,GH_REPO:'NeuraPawLabs/luoshu-computer'}};
 }
 test('publisher creates an unsigned prerelease using only validated explicit artifacts',()=>{
  const f=fixture();try{
-  execFileSync(process.execPath,['scripts/publish-computer-release.mjs','--bundle',f.bundle],{env:f.env,stdio:'pipe'});
+  execFileSync(process.execPath,[f.publisher,'--bundle',f.bundle],{env:f.env,stdio:'pipe'});
   const calls=readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse),create=calls.find(args=>args[0]==='release'&&args[1]==='create');
   assert.ok(create);assert.ok(create.includes('--prerelease'));assert.ok(create.includes('--verify-tag'));assert.ok(create.includes('--latest=false'));
   assert.ok(create.includes(join(f.bundle,f.artifact)));assert.ok(create.includes(join(f.bundle,'release.json')));assert.ok(create.includes(join(f.bundle,'SHA256SUMS')));
@@ -26,7 +27,7 @@ test('publisher creates an unsigned prerelease using only validated explicit art
 });
 test('publisher refuses a remote tag pointing to different source',()=>{
  const f=fixture();try{
-  assert.throws(()=>execFileSync(process.execPath,['scripts/publish-computer-release.mjs','--bundle',f.bundle],{env:{...f.env,TEST_TAG_SHA:'b'.repeat(40)},stdio:'pipe'}),/tag|commit/i);
+  assert.throws(()=>execFileSync(process.execPath,[f.publisher,'--bundle',f.bundle],{env:{...f.env,TEST_TAG_SHA:'b'.repeat(40)},stdio:'pipe'}),/tag|commit/i);
   assert.equal(readFileSync(f.log,'utf8').includes('"create"'),false);
  }finally{rmSync(f.root,{recursive:true,force:true});}
 });
@@ -38,7 +39,21 @@ for(const mutation of ['digest','traversal','unsigned-latest','extra-file'])test
   if(mutation==='unsigned-latest')data.prerelease=false;
   if(mutation==='extra-file')writeFileSync(join(f.bundle,'private.pem'),'DO NOT UPLOAD');
   writeFileSync(path,JSON.stringify(data));
-  assert.throws(()=>execFileSync(process.execPath,['scripts/publish-computer-release.mjs','--bundle',f.bundle],{env:f.env,stdio:'pipe'}));
+  assert.throws(()=>execFileSync(process.execPath,[f.publisher,'--bundle',f.bundle],{env:f.env,stdio:'pipe'}));
   try{assert.equal(readFileSync(f.log,'utf8'),'');}catch(error){assert.equal(error.code,'ENOENT');}
+ }finally{rmSync(f.root,{recursive:true,force:true});}
+});
+
+test('publisher marks a signed formal release as latest for GitHub automatic updates',()=>{
+ const f=fixture();try{
+  const data=JSON.parse(readFileSync(join(f.bundle,'release.json'),'utf8')),bytes=sign(null,readFileSync(join(f.bundle,'manifest.json')),f.keys.privateKey);writeFileSync(join(f.bundle,'manifest.sig'),bytes);data.artifacts.push({name:'manifest.sig',size:64,sha256:createHash('sha256').update(bytes).digest('hex')});data.signature='ed25519';data.prerelease=false;writeFileSync(join(f.bundle,'release.json'),JSON.stringify(data));writeFileSync(join(f.bundle,'SHA256SUMS'),data.artifacts.map(a=>`${a.sha256}  ${a.name}\n`).join(''));
+  execFileSync(process.execPath,[f.publisher,'--bundle',f.bundle],{env:f.env,stdio:'pipe'});const call=readFileSync(f.log,'utf8').trim().split('\n').map(JSON.parse).find(args=>args[0]==='release'&&args[1]==='create');assert.ok(call.includes('--latest=true'));assert.equal(call.includes('--prerelease'),false);
+ }finally{rmSync(f.root,{recursive:true,force:true});}
+});
+
+test('publisher rejects an invalid formal-release signature before any GitHub request',()=>{
+ const f=fixture();try{
+  const data=JSON.parse(readFileSync(join(f.bundle,'release.json'),'utf8')),signature=Buffer.alloc(64);writeFileSync(join(f.bundle,'manifest.sig'),signature);data.artifacts.push({name:'manifest.sig',size:64,sha256:createHash('sha256').update(signature).digest('hex')});data.signature='ed25519';data.prerelease=false;writeFileSync(join(f.bundle,'release.json'),JSON.stringify(data));writeFileSync(join(f.bundle,'SHA256SUMS'),data.artifacts.map(a=>`${a.sha256}  ${a.name}\n`).join(''));
+  assert.throws(()=>execFileSync(process.execPath,[f.publisher,'--bundle',f.bundle],{env:f.env,stdio:'pipe'}),/signature/i);assert.equal(existsSync(f.log),false);
  }finally{rmSync(f.root,{recursive:true,force:true});}
 });

@@ -76,3 +76,11 @@ test('setup rejects incomplete or invalid independent source configuration befor
  await expect(setupComputer({...options,releaseUrl:'https://downloads.test/computer'})).rejects.toThrow(/together|key/i);
  expect(paired).toBe(false);
 });
+
+test('setup persists the installer-pinned GitHub source without adding user-facing setup flags',async()=>{
+ const {mkdtemp,writeFile,rm}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {generateKeyPairSync}=await import('node:crypto');
+ const root=await mkdtemp(join(tmpdir(),'github-setup-'));try{
+  const publicKey=generateKeyPairSync('ed25519').publicKey.export({format:'pem',type:'spki'}).toString();await writeFile(join(root,'release-source.json'),JSON.stringify({repository:'NeuraPawLabs/luoshu-computer',public_key:publicKey}));
+  await setupComputer({server:'https://core.test',code:'single-use',name:'desk',paths:{...paths,root},pair:async input=>{expect(input).toMatchObject({releaseRepository:'NeuraPawLabs/luoshu-computer',releasePublicKey:publicKey});return{workerId:'worker_1',status:'pending'};},writeFile:async()=>undefined,mkdir:async()=>undefined,chmod:async()=>undefined,rename:async()=>undefined,run:async()=>undefined});
+ }finally{await rm(root,{recursive:true,force:true});}
+});

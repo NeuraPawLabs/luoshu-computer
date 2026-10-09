@@ -1,6 +1,6 @@
 import {readFileSync,readdirSync,lstatSync,realpathSync} from 'node:fs';
 import {resolve,join} from 'node:path';
-import {createHash} from 'node:crypto';
+import {createHash,createPublicKey,verify} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 
 const args=process.argv.slice(2);
@@ -31,6 +31,10 @@ if(readdirSync(bundle).some(name=>!allowed.has(name)))throw Error('Unlisted file
 const actualSums=read('SHA256SUMS').toString('utf8').trim().split('\n').sort();
 if(JSON.stringify(actualSums)!==JSON.stringify(checksums.sort()))throw Error('Release checksums differ from artifact metadata');
 read('release-notes.md');
+if(release.signature==='ed25519'){
+ const key=createPublicKey(readFileSync(resolve(import.meta.dirname,'../release-public-key.pem'))),signature=read('manifest.sig');
+ if(key.asymmetricKeyType!=='ed25519'||signature.length!==64||!verify(null,read('manifest.json'),key,signature))throw Error('Formal release signature is invalid for the pinned public key');
+}
 const gh=(args)=>execFileSync(process.env.LUOSHU_GH_BIN??'gh',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
 gh(['auth','status','--hostname','github.com']);
 const repository=JSON.parse(gh(['api',`repos/${repo}`]));
@@ -40,7 +44,7 @@ if(ref?.type==='tag')ref=JSON.parse(gh(['api',`repos/${repo}/git/tags/${ref.sha}
 if(ref?.type!=='commit'||ref.sha!==release.commit)throw Error('Remote release tag does not match the prepared source commit');
 try{gh(['release','view',release.tag,'--repo',repo,'--json','id']);throw Error('Release already exists; refusing to replace published artifacts');}
 catch(error){if(error.message==='Release already exists; refusing to replace published artifacts')throw error;}
-const command=['release','create',release.tag,'--repo',repo,'--verify-tag','--target',release.commit,'--title',`Luoshu Computer ${release.version}`,'--notes-file',join(bundle,'release-notes.md'),'--latest=false'];
+const command=['release','create',release.tag,'--repo',repo,'--verify-tag','--target',release.commit,'--title',`Luoshu Computer ${release.version}`,'--notes-file',join(bundle,'release-notes.md'),release.prerelease?'--latest=false':'--latest=true'];
 if(release.prerelease)command.push('--prerelease');
 command.push(...uploads,join(bundle,'release.json'),join(bundle,'SHA256SUMS'));
 process.stdout.write(gh(command));

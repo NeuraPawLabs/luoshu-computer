@@ -1,5 +1,7 @@
-name: Computer unsigned prerelease
+name: Computer signed release
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
@@ -8,8 +10,12 @@ on:
         type: string
 permissions:
   contents: read
+concurrency:
+  group: computer-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 jobs:
   publish:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     permissions:
@@ -17,9 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Require a release commit from main
+        run: git merge-base --is-ancestor HEAD origin/main
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.17.1
@@ -30,8 +38,11 @@ jobs:
       - run: npm test
       - run: npm run package
       - run: npm run test:package
-      - run: npm run release:prepare
-      - name: Create a new prerelease from verified files
+      - name: Prepare the signed release
+        env:
+          LUOSHU_RELEASE_SIGNING_KEY: ${{ secrets.LUOSHU_RELEASE_SIGNING_KEY }}
+        run: npm run release:prepare:signed
+      - name: Publish verified release assets
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

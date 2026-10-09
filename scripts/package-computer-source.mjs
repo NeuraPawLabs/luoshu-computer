@@ -30,7 +30,7 @@ for(const workspace of workspaces){
  if(existsSync(join(root,workspace,'tests')))assertNoSymlinkPath(join(root,workspace,'tests'));
 }
 assertNoSymlinkPath(join(root,'package.json'));assertNoSymlinkPath(join(root,'package-lock.json'));
-const jointTests=['apps/worker/tests/assistant-engine-runtime.test.ts','apps/worker/tests/native-capacity-integration.test.ts'];
+const jointTests=[];
 const sourcePackage=JSON.parse(readFileSync(join(root,'package.json'),'utf8'));
 const worker=JSON.parse(readFileSync(join(root,'apps/worker/package.json'),'utf8'));
 const tracked=[];
@@ -56,9 +56,11 @@ for(const workspace of workspaces){
  for(const name of ['package.json','tsconfig.json','LICENSE'])copyFile(`${workspace}/${name}`);
  copySources(`${workspace}/src`);if(existsSync(join(root,workspace,'tests')))copySources(`${workspace}/tests`);
 }
-for(const file of ['package-runtime.mjs','package-computer.mjs','computer-archive.mjs','computer-release.mjs','computer-node-runtime.mjs','sign-computer-release.mjs','package-computer-source.mjs','prepare-computer-release.mjs','publish-computer-release.mjs'])copyFile(`scripts/${file}`);
-for(const file of ['computer-package.test.mjs','computer-signing.test.mjs','computer-archive.test.mjs','computer-public-release.test.mjs','computer-publish.test.mjs'])copyFile(`scripts/tests/${file}`);
+for(const file of ['package-runtime.mjs','package-computer.mjs','computer-archive.mjs','computer-release.mjs','computer-node-runtime.mjs','sign-computer-release.mjs','package-computer-source.mjs','prepare-computer-release.mjs','publish-computer-release.mjs','prepare-signed-computer-release.mjs'])copyFile(`scripts/${file}`);
+for(const file of ['computer-package.test.mjs','computer-signing.test.mjs','computer-archive.test.mjs','computer-public-release.test.mjs','computer-publish.test.mjs','computer-ci-signing.test.mjs','computer-github-install.test.mjs'])copyFile(`scripts/tests/${file}`);
 copyFile('scripts/templates/install-computer.sh');
+copyFile('scripts/templates/install-github-computer.sh');
+copyFile('release-public-key.pem');
 copyFile('scripts/templates/computer-source-readme.md');
 copyFile('scripts/templates/computer-source-readme.md','README.md');
 for(const file of repositoryFacilities){
@@ -68,7 +70,7 @@ for(const file of repositoryFacilities){
 copyFile('apps/worker/LICENSE','LICENSE');copyFile('tsconfig.base.json');
 const json=(name,value)=>writeFileSync(join(output,name),JSON.stringify(value,null,2)+'\n');
 const manifest={name:'luoshu-computer-source',version:worker.version,private:true,license:'MIT',type:'module',engines:{node:'>=22'},workspaces,
- scripts:{build:'tsc -b',lint:'tsc -b --pretty false',test:'vitest run',worker:'npm run dev -w @luoshu/worker --',computer:'tsx apps/worker/src/computer-main.ts',package:'node scripts/package-computer.mjs','package:source':'node scripts/package-computer-source.mjs',sign:'node scripts/sign-computer-release.mjs','test:package':'node --test scripts/tests/computer-package.test.mjs scripts/tests/computer-signing.test.mjs scripts/tests/computer-archive.test.mjs scripts/tests/computer-public-release.test.mjs scripts/tests/computer-publish.test.mjs','release:prepare':'node scripts/prepare-computer-release.mjs','release:publish':'node scripts/publish-computer-release.mjs'},
+ scripts:{build:'tsc -b',lint:'tsc -b --pretty false',test:'vitest run',worker:'npm run dev -w @luoshu/worker --',computer:'tsx apps/worker/src/computer-main.ts',package:'node scripts/package-computer.mjs','package:source':'node scripts/package-computer-source.mjs',sign:'node scripts/sign-computer-release.mjs','test:package':'node --test scripts/tests/computer-package.test.mjs scripts/tests/computer-signing.test.mjs scripts/tests/computer-archive.test.mjs scripts/tests/computer-public-release.test.mjs scripts/tests/computer-publish.test.mjs scripts/tests/computer-ci-signing.test.mjs scripts/tests/computer-github-install.test.mjs','release:prepare':'node scripts/prepare-computer-release.mjs','release:prepare:signed':'node scripts/prepare-signed-computer-release.mjs','release:publish':'node scripts/publish-computer-release.mjs'},
  devDependencies:Object.fromEntries(['@types/node','typescript','tsx','vitest'].map(name=>[name,sourcePackage.devDependencies[name]])),allowScripts:{'node-pty@1.1.0':true}};
 json('package.json',manifest);json('tsconfig.json',{files:[],references:workspaces.map(path=>({path}))});
 writeFileSync(join(output,'vitest.config.ts'),"import {defineConfig} from 'vitest/config';\nexport default defineConfig({test:{include:['apps/worker/tests/**/*.test.ts','packages/*/tests/**/*.test.ts'],testTimeout:15000,hookTimeout:15000,pool:'forks',maxWorkers:2}});\n");
