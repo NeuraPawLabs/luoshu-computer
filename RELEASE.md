@@ -1,6 +1,6 @@
 # Release procedure
 
-Computer versions are independent of Core. The first public version is **0.1.0**, wire protocol **8**, packaged for Linux x64.
+Computer versions are independent of Core. The first public version is **0.1.0**, wire protocol **8**, packaged for Linux x64 with systemd 254+ and cgroup v2.
 
 ## One-time signing configuration
 
@@ -32,7 +32,7 @@ No TLS certificate or manually created GitHub token is required. Actions uses it
    ```
 
    Use the current version for later releases. If an unpublished local tag already exists, verify it points at the release commit before pushing. Never reassign a published tag or replace an existing Release's assets.
-4. The **Computer signed release** workflow checks the tag's commit belongs to main, runs verification, reads the signing Secret only during release preparation, writes the temporary private file outside the source checkout, and deletes it afterwards. Child build processes do not inherit the signing Secret.
+4. The **Computer signed release** workflow checks the tag's commit belongs to main, initializes and verifies the Ubuntu 24.04 systemd user runtime, runs verification, reads the signing Secret only during release preparation, writes the temporary private file outside the source checkout, and deletes it afterwards. Child build processes do not inherit the signing Secret.
 5. The workflow uploads the source archive, Linux x64 binary, `manifest.json`, `manifest.sig`, installer, `SHA256SUMS` and release metadata. Signed stable releases become GitHub's latest release. Existing tags can also be released from Actions → Computer signed release → Run workflow on main.
 
 The release tool binds source and binary to the clean tagged Git snapshot and refuses to replace existing releases. The initial version's unpublished tag may be corrected locally before the first push.

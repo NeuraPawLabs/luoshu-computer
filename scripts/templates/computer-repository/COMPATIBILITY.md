@@ -2,7 +2,7 @@
 
 | Computer | Wire protocol | Packaged platform | Build runtime |
 | --- | --- | --- | --- |
-| 0.1.0 | 8 | Linux x64, systemd user services | Node.js 22.17.1 |
+| 0.1.0 | 8 | Linux x64, systemd 254+ user services, cgroup v2 | Node.js 22.17.1 |
 
 The independent public version sequence starts at 0.1.0. The earlier 0.1.6 repository import was release preparation; it had no published version tag or Release when the starting version was corrected. Monorepo device versions belong to a separate preparation sequence.
 

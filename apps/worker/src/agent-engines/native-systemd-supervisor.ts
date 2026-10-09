@@ -16,7 +16,10 @@ export async function assertSystemdUserAvailable():Promise<void>{
  if(process.platform!=='linux')throw Object.assign(Error('Native direct engine requires Linux systemd user service'),{code:'SUPERVISOR_UNAVAILABLE'});
  try{
   const result=await execFile('systemctl',['--user','show','--property=Version','--value'],{timeout:5000,maxBuffer:4096});
-  if(!/^\d+(?:\.\d+)?(?:[-+][\w.-]+)?\s*$/u.test(result.stdout.trim()))throw Error('systemd user manager did not report a version');
+  const version=result.stdout.trim();
+  if(!/^\d+(?:\.\d+)?(?:[-+][\w.-]+)?\s*$/u.test(version))throw Error('systemd user manager did not report a version');
+  // Literal launch arguments require systemd 254's no-env-expand ExecStart flag.
+  if(Number.parseInt(version,10)<254)throw Error('Native direct engine requires systemd 254 or newer');
  }catch(error){throw Object.assign(Error('Native systemd user supervisor is unavailable'),{code:'SUPERVISOR_UNAVAILABLE',cause:error});}
 }
 

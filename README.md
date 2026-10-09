@@ -2,7 +2,7 @@
 
 MIT-licensed local execution client for [Luoshu](https://github.com/NeuraPawLabs/luoshu). Device runtime, wire protocol and local tests live in this independent repository; Core and Console are maintained separately. Dependencies retain their own licenses.
 
-The supported target is Linux x64 with systemd user services. Codex/OpenCode are installed and authenticated separately by each user.
+The supported target is Linux x64 with systemd 254+ user services and cgroup v2. Codex/OpenCode are installed and authenticated separately by each user.
 
 ## Install from GitHub
 
