@@ -7,6 +7,7 @@ export const nativeApprovalPolicySchema=z.object({granular:z.object({sandbox_app
 const policySchema=z.object({cwd:absolute,model:z.string().min(1),modelProvider:z.string().min(1),reasoningEffort:z.string().min(1).nullable().default(null),
  approvalPolicy:nativeApprovalPolicySchema,approvalsReviewer:z.literal('user'),
  sandbox:z.union([
+  z.object({type:z.literal('readOnly'),networkAccess:z.literal(false).default(false)}).strict(),
   z.object({type:z.literal('workspaceWrite'),writableRoots:z.array(absolute),networkAccess:z.literal(false),excludeSlashTmp:z.literal(true),excludeTmpdirEnvVar:z.literal(true)}).strict(),
   z.object({type:z.literal('dangerFullAccess'),writableRoots:z.array(absolute).default([]),networkAccess:z.literal(true).default(true),excludeSlashTmp:z.boolean().default(false),excludeTmpdirEnvVar:z.boolean().default(false)}).strict(),
  ]),
@@ -18,6 +19,7 @@ export function validateNativePolicy(value:unknown,cwd:string,permissions:Native
  const policy=policySchema.parse(value);
  const roots=new Set(nativeWritableRoots(permissions));
  if(policy.cwd!==cwd)throw Error('Native effective workspace policy differs from authorized scope');
+ if(!roots.size&&policy.sandbox.type!=='readOnly')throw Error('Native Core policy must remain read-only');
  if(policy.sandbox.type==='workspaceWrite'&&policy.sandbox.writableRoots.some(root=>!roots.has(root)))throw Error('Native effective workspace policy differs from authorized scope');
  if(permissions.config.network.enabled!== (policy.sandbox.networkAccess===true))throw Error('Native effective network policy differs from authorized scope');
  return{...policy,permissions};

@@ -9,7 +9,7 @@ import type {CodexAppServerClient} from './codex-rpc.js';
 import {CodexSessionStore,type CodexBinding,type SubmissionRow} from './session-store.js';
 export {CodexSessionStore,type CodexBinding} from './session-store.js';
 export interface NativeResourceScope {read:string[];write:string[];resourceRoot?:string}
-export interface CodexSubmission {session_key:string;binding:CodexBinding;cwd:string;input:{type:string;text:string}[];input_sha256:string;submission_id:string;resources?:NativeResourceScope;prepareResources?:()=>Promise<NativeResourceScope>;prepareInput?:()=>Promise<{type:string;text:string}[]>;assertCurrent?:()=>void}
+export interface CodexSubmission {session_key:string;binding:CodexBinding;cwd:string;input:{type:string;text:string}[];input_sha256:string;submission_id:string;output_schema?:Record<string,unknown>;resources?:NativeResourceScope;prepareResources?:()=>Promise<NativeResourceScope>;prepareInput?:()=>Promise<{type:string;text:string}[]>;assertCurrent?:()=>void}
 interface NativeReceipt {thread_id:string;turn_id:string}
 const unknown=()=>Object.assign(Error('Codex submission is unresolved; reconcile native state before retrying'),{code:'CODEX_SUBMISSION_UNKNOWN'});
 
@@ -47,14 +47,19 @@ export class CodexSessionService {
    if(saved)nativeApprovalPolicySchema.parse(saved.approvalPolicy);
    const runtime=await client.runtimeExecutable();assertCurrent();
    if(saved&&saved.permissions?.runtime!==runtime)throw Error('Native permission scope or runtime changed');
-   const clearing=resources&&!resources.resourceRoot&&!resources.read.length&&!resources.write.length&&saved?.permissions.config.filesystem[':workspace_roots'];
-   const mode=await this.workspace.sandboxMode?.()??'workspace-write';
+   const core=this.store.binding(key).role==='core';
+   const clearing=!core&&resources&&!resources.resourceRoot&&!resources.read.length&&!resources.write.length&&saved?.permissions.config.filesystem[':workspace_roots'];
+   const mode=core?'read-only':await this.workspace.sandboxMode?.()??'workspace-write';
    const savedFull=Boolean(saved?.permissions.config.network.enabled&&saved?.permissions.config.filesystem[':root']==='write');
    const modeChanged=saved?((mode==='danger-full-access')!==savedFull):true;
-   const permissionScope=clearing?{...saved!.permissions,runtimeWorkspaceRoots:[]}:mode==='danger-full-access'||resources||modeChanged||!saved
+   const permissionScope=clearing?{...saved!.permissions,runtimeWorkspaceRoots:[]}:core||mode==='danger-full-access'||resources||modeChanged||!saved
     ?nativePermissions({session:key,cwd:session.cwd,runtime,mode,...(resources??{read:[],write:[]})})
     :saved.permissions;
    const changed=Boolean(saved&&!isDeepStrictEqual(saved.permissions,permissionScope));
+   if(core&&saved){
+    if(changed)throw Error('Native Core read-only permission scope changed');
+    validateNativePolicy({...saved,activePermissionProfile:{id:permissionScope.id,extends:null},runtimeWorkspaceRoots:permissionScope.runtimeWorkspaceRoots},session.cwd,permissionScope);
+   }
    await client.assertPermissionProfileAvailable(session.cwd,permissionScope.id);assertCurrent();
    const sameProfile=saved&&permissionScope.id===saved.permissions.id&&isDeepStrictEqual(permissionScope.config,saved.permissions.config);
    if(saved&&sameProfile&&session.thread_id&&this.loaded.get(key)===client){
@@ -64,14 +69,16 @@ export class CodexSessionService {
     this.store.attachConfiguredThread(key,session.thread_id,session.session_tree_id,intended,changed?saved:undefined);
     return{id:session.thread_id,...(session.session_tree_id?{sessionId:session.session_tree_id}:{}),policy:intended,activePermissionProfile:{id:permissionScope.id,extends:null},runtimeWorkspaceRoots:permissionScope.runtimeWorkspaceRoots};
    }
+   const coreConfig=core?await client.coreThreadConfig(session.cwd):{};assertCurrent();
    const policy={cwd:session.cwd,permissionScope,approvalPolicy:nativeApprovalPolicy,approvalsReviewer:'user' as const,developerInstructions:session.developer_instructions,
-    ...(saved?{model:saved.model,modelProvider:saved.modelProvider}:{}),config:{...(saved?.reasoningEffort?{model_reasoning_effort:saved.reasoningEffort}:{})}};
-   const thread=session.thread_id?await client.resumeThread({threadId:session.thread_id,...policy}):await client.startThread({...policy,serviceName:'luoshu',dynamicTools:[...nativeTaskTools(),...nativeCheckTools(),...nativeTitleTools(),...nativeKnowledgeTools()]});
+    ...(saved?{model:saved.model,modelProvider:saved.modelProvider}:{}),config:{...(saved?.reasoningEffort?{model_reasoning_effort:saved.reasoningEffort}:{}),...coreConfig}};
+   const thread=session.thread_id?await client.resumeThread({threadId:session.thread_id,...policy}):await client.startThread({...policy,serviceName:'luoshu',dynamicTools:core?[]:[...nativeTaskTools(),...nativeCheckTools(),...nativeTitleTools(),...nativeKnowledgeTools()]});
    const effective=validateNativePolicy({...thread.policy,activePermissionProfile:thread.activePermissionProfile,runtimeWorkspaceRoots:thread.runtimeWorkspaceRoots},session.cwd,permissionScope);
    this.store.attachConfiguredThread(key,thread.id,thread.sessionId??null,effective,changed?saved!:undefined);this.loaded.set(key,client);assertCurrent();return{...thread,policy:effective};
   }catch(error){this.store.unknownThread(key);throw error;}
  }
  async prepare(input:{session_key:string;binding:CodexBinding;workspace_id:string;developer_instructions?:string;resources?:NativeResourceScope},assertCurrent:()=>void=()=>{}):Promise<{thread_id:string;session_tree_id:string|null}>{
+  if(input.binding.role==='core'&&input.resources)throw Error('Core sessions cannot prepare Worker resources');
   await this.assertCurrentRuntime(input.binding.engine.worker_id,assertCurrent);
   assertCurrent();const cwd=await this.workspace.workspacePath(input.workspace_id,input.session_key);assertCurrent();if(!cwd)throw Error('Codex workspace is unavailable');
   this.store.ensure(input.binding,input.session_key,cwd,input.developer_instructions);
@@ -80,6 +87,7 @@ export class CodexSessionService {
  }
  async submit(input:CodexSubmission):Promise<NativeReceipt>{
   input.assertCurrent?.();
+  if(input.binding.role==='core'?!input.output_schema:input.output_schema!==undefined)throw Error('Only Core submissions require a structured output schema');
   if(!/^[a-f0-9]{64}$/.test(input.input_sha256)||createHash('sha256').update(JSON.stringify(input.input)).digest('hex')!==input.input_sha256)throw Error('Codex submission input digest mismatch');
   // Exact journal replays do not execute and must remain available after an
   // installation update. New work checks drift before reserving an intent.
@@ -103,7 +111,7 @@ export class CodexSessionService {
    const client=await this.client(input.binding.engine.worker_id,false,assertCurrent),thread=await this.loadThread(input.session_key,client,input.submission_id,assertCurrent,resources);
    assertCurrent();
    this.store.start(input.submission_id,thread.id);
-   const turn=await client.startTurn({threadId:thread.id,input:nativeInput,runtimeWorkspaceRoots:thread.policy.permissions.runtimeWorkspaceRoots,permissions:thread.policy.permissions.id});
+   const turn=await client.startTurn({threadId:thread.id,input:nativeInput,runtimeWorkspaceRoots:thread.policy.permissions.runtimeWorkspaceRoots,permissions:thread.policy.permissions.id,...(input.output_schema?{outputSchema:input.output_schema}:{})});
    try{assertCurrent();this.store.acknowledge(input.submission_id,thread.id,turn.id);}catch(error){try{this.store.lateAcknowledge(input.submission_id,thread.id,turn.id);}catch{this.store.unknown(input.submission_id);}try{await client.interruptTurn({threadId:thread.id,turnId:turn.id});}catch{/** retain unknown for reconciliation */}throw error;}
    return{thread_id:thread.id,turn_id:turn.id};
   }catch(error){this.store.unknown(input.submission_id);throw error;}

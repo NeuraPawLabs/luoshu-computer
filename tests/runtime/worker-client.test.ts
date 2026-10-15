@@ -26,6 +26,18 @@ async function setup(options:Pick<WorkerClientOptions,'codebasePreparation'|'onA
 }
 const maintenance:MaintenanceRequest={type:'maintenance_request',request_id:'maintenance',attempt_id:'repair',lease_epoch:1,operation:'repair',repository:'/fixture',base_sha:'a'.repeat(40),branch:'luoshu/repair/incident/repair',agent:'opencode',instruction:'fix',allowed_paths:['src/**'],checks:[{name:'unit',executable:'npm',args:['test'],timeout_seconds:60}],timeout_seconds:60};
 
+test('native transport preserves only the explicit Core capacity refusal as retryable',async()=>{
+ const f=await setup({onAssistantEngineRequest:async()=>{throw Object.assign(Error('Worker capacity is full'),{code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true});}});
+ await f.client.connect();
+ const binding={role:'core',conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker_1',agent:'codex',adapter_version:1}};
+ const request={action:'submit',request_id:'capacity',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:'a'.repeat(64),task_id:null,task_revision:null,output_schema:{type:'object'}},input:[{type:'text',text:'Decide'}],lease_ms:120000};
+ f.send({type:'assistant_engine_request',request});
+ expect(await waitFor(()=>f.received.find(m=>m.type==='assistant_engine_error'&&m.request_id==='capacity'))).toMatchObject({code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true});
+ f.client.onAssistantEngineRequest=async()=>{throw Object.assign(Error('lost receipt'),{code:'CODEX_RPC_UNKNOWN',retryable:true});};
+ f.send({type:'assistant_engine_request',request:{...request,request_id:'unknown'}});
+ expect(await waitFor(()=>f.received.find(m=>m.type==='assistant_engine_error'&&m.request_id==='unknown'))).toMatchObject({code:'ENGINE_REQUEST_FAILED',retryable:false});
+});
+
 test('native execution blocks maintenance before invoking its executor',async()=>{
  let calls=0;const f=await setup({maintenance:{execute:async()=>{calls++;throw Error('must not execute');}}});f.client.assistantEngineActiveCount=()=>1;await f.client.connect();f.send(maintenance);
  expect(await waitFor(()=>f.received.find(m=>m.type==='maintenance_response'))).toMatchObject({error:'Worker capacity is full'});expect(calls).toBe(0);

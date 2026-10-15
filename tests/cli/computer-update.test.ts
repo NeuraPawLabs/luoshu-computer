@@ -38,6 +38,17 @@ test('worker package, lockfile and reported computer versions agree', async () =
   expect(lock.packages[''].version).toBe(workerPackage.version);
 });
 
+test('the Core runtime release upgrades an existing 0.1.0 installation through the normal updater',async()=>{
+ const f=await fixture('0.1.0',COMPUTER_VERSION);let downloads=0;
+ try{
+  await mkdir(f.paths.state);await writeFile(join(f.paths.state,'identity.json'),'keep device identity');
+  const result=await applyComputerUpdate({paths:f.paths,manifest:f.manifest,download:async()=>{downloads++;return f.bytes;},activeAttemptIds:()=>[]});
+  expect(result).toEqual({status:'updated',from:'0.1.0',to:COMPUTER_VERSION});expect(downloads).toBe(1);
+  expect(await readFile(join(f.paths.current,'version.txt'),'utf8')).toBe('new');
+  expect(await readFile(join(f.paths.state,'identity.json'),'utf8')).toBe('keep device identity');
+ }finally{await rm(f.root,{recursive:true,force:true});}
+});
+
 test('renumbering the independent release preserves legacy installation state and rollback',async()=>{
  const f=await fixture('0.1.6','0.1.0');
  try{

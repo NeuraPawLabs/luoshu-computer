@@ -22,6 +22,9 @@ export const requiredDeviceEngineFeatures = [
   'session_resume', 'turn_status', 'turn_interrupt', 'interaction_response',
   'structured_events', 'attachments', 'task_operations', 'delivery',
 ] as const;
+/** Feature reported by newer devices that can host the Core Agent decision loop. */
+export const deviceEngineFeatureSchema = z.enum([...requiredDeviceEngineFeatures, 'core_agent_runtime']);
+export type DeviceEngineFeature = z.infer<typeof deviceEngineFeatureSchema>;
 
 export const deviceEngineReportSchema = z.object({
   agent: agentIdSchema,
@@ -29,7 +32,7 @@ export const deviceEngineReportSchema = z.object({
   adapter_version: z.number().int().positive().nullable(),
   status: z.enum(['ready', 'unavailable']),
   reason: z.enum(['adapter_missing', 'protocol_unsupported', 'login_required', 'permissions_unavailable', 'supervisor_unavailable']).nullable(),
-  features: z.array(z.enum(requiredDeviceEngineFeatures)),
+  features: z.array(deviceEngineFeatureSchema),
 }).strict().superRefine((value, ctx) => {
   if (new Set(value.features).size !== value.features.length) {
     ctx.addIssue({code: 'custom', message: 'Duplicate engine feature'});

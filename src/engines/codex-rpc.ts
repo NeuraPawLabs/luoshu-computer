@@ -7,6 +7,7 @@ import type {NativePermissions} from './native-permissions.js';
 import {snapshotNativeExecutable,type NativeExecutableSnapshot} from './native-executable.js';
 import {assertSystemdUserAvailable,spawnSystemdSupervisor} from './native-systemd-supervisor.js';
 import type {NativeUnitLease} from './native-unit-registry.js';
+import {coreToolConfig} from './core-tool-config.js';
 
 export interface CodexRpcProcess {
  confirmNativeExit?:()=>Promise<void>;
@@ -170,9 +171,14 @@ export class CodexAppServerClient {
   if(!parsed.success)throw Error('Native effective configuration is unavailable');
   if(Object.hasOwn(parsed.data.config.permissions??{},id))throw Error('Native permission profile name collides with inherited configuration');
  }
+ async coreThreadConfig(cwd:string):Promise<Record<string,unknown>>{
+  const value=await this.request<unknown>('config/read',{cwd,includeLayers:false});
+  const config=z.object({config:z.object({mcp_servers:z.record(z.string(),z.unknown()).nullish()})}).parse(value);
+  return coreToolConfig(config.config.mcp_servers??{});
+ }
  backgroundTerminals(params:{threadId:string;cursor?:string}){return this.request<unknown>('thread/backgroundTerminals/list',params);}
  terminateBackgroundTerminal(params:{threadId:string;processId:string}){return this.request<unknown>('thread/backgroundTerminals/terminate',params).then(value=>z.object({terminated:z.boolean()}).parse(value));}
- startTurn(params:{threadId:string;input:unknown[];runtimeWorkspaceRoots?:string[];permissions?:string}){return this.request<unknown>('turn/start',params).then(value=>this.nativeObject(value,'turn'));}
+ startTurn(params:{threadId:string;input:unknown[];runtimeWorkspaceRoots?:string[];permissions?:string;outputSchema?:Record<string,unknown>}){return this.request<unknown>('turn/start',params).then(value=>this.nativeObject(value,'turn'));}
  steerTurn(params:{threadId:string;expectedTurnId:string;input:unknown[]}):Promise<{turnId:string}>{return this.request<unknown>('turn/steer',params).then(value=>{
   const parsed=z.object({turnId:z.string().min(1)}).safeParse(value);
   if(!parsed.success||parsed.data.turnId!==params.expectedTurnId)throw Object.assign(Error('Invalid Codex steering turn acknowledgement'),{code:'CODEX_RPC_PROTOCOL_ERROR'});

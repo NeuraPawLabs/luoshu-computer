@@ -243,6 +243,7 @@ export class CodexEngineService {
   }
    if(request.action==='session_prepare'){
    if(request.binding.engine.kind!=='device'||request.binding.engine.worker_id!==this.workerId)throw Error('Engine request targets another Worker');
+   if(request.binding.role==='core'&&request.resources)throw Error('Core sessions cannot prepare Worker resources');
    let resources:PreparedNativeCodebases|undefined;
    if(request.resources){
     const metadata=this.store.metadata(request.session_id,request.resources.submission_id);
@@ -253,6 +254,8 @@ export class CodexEngineService {
    return{action:'session_prepare',request_id:request.request_id,session_id:sessionId,native:{thread_id:native.thread_id,session_tree_id:native.session_tree_id}};
   }
   if(request.action==='submit'){
+   const core=request.submission.binding.role==='core';
+   if(core&&(request.input_files?.length||request.submission.input_files_sha256))throw Error('Core submissions cannot prepare Worker attachments');
    if(this.preparations.get(request.submission.submission_id)?.size)throw Error('Native workspace preparation is pending');
    if(createHash('sha256').update(JSON.stringify(request.input)).digest('hex')!==request.submission.input_sha256)throw Error('Codex submission input digest mismatch');
    const files=request.input_files??[],filesHash=request.submission.input_files_sha256;
@@ -261,7 +264,12 @@ export class CodexEngineService {
    const binding=request.submission.binding; if(binding.engine.kind!=='device'||binding.engine.worker_id!==this.workerId)throw Error('Engine request targets another Worker');
    const session=this.store.session(request.submission.session_id);if(!session?.thread_id)throw Error('Codex session is not prepared');
    this.options.files?.assertSubmissionAllowed(request.submission.session_id,request.submission.run_id,request.submission.submission_id);
-   if(!this.store.submission(request.submission.submission_id)&&!this.options.files?.hasIntent(request.submission.session_id,request.submission.run_id,request.submission.submission_id)&&this.store.activeCount()+(this.options.files?.activeCount()??0)+(this.options.otherActiveCount?.()??0)>=(this.options.capacity?.()??1))throw Error('Worker assistant engine capacity is full');
+   if(!this.store.submission(request.submission.submission_id)&&!this.options.files?.hasIntent(request.submission.session_id,request.submission.run_id,request.submission.submission_id)&&this.store.activeCount()+(this.options.files?.activeCount()??0)+(this.options.otherActiveCount?.()??0)>=(this.options.capacity?.()??1)){
+    const error=Error('Worker assistant engine capacity is full');
+    // Only this pre-reservation refusal proves that no Core turn started.
+    // Unknown receipts and failures after reservation must never be replayed.
+    throw core?Object.assign(error,{code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true}):error;
+   }
    this.store.registerSubmission(request.submission);
    if(request.submission.codebases?.length&&!this.store.submission(request.submission.submission_id))this.assertPreparationAuthority(request.submission.submission_id);
    let releaseAcknowledgement!:()=>void;const acknowledged=new Promise<void>(resolve=>releaseAcknowledgement=resolve);
@@ -270,7 +278,8 @@ export class CodexEngineService {
    if(previous&&previous.submission.submission_id!==request.submission.submission_id)throw Error('Codex session is active');
    if(!previous&&!this.store.submission(request.submission.submission_id)){this.active.set(session.thread_id,state);this.renewLease(state,request.lease_ms);}
    let result:{thread_id:string;turn_id:string},resources:PreparedNativeCodebases|undefined;
-   try{result=await this.sessions.submit({session_key:request.submission.session_id,binding:{...binding,engine:binding.engine},cwd:session.cwd,input:request.input,input_sha256:request.submission.input_sha256,submission_id:request.submission.submission_id,assertCurrent:()=>{assertCurrent();if(state.stopped||Date.now()>=state.deadline)throw Error('Native execution authority expired');},prepareResources:async()=>resources?{read:resources.read,write:resources.write,resourceRoot:resources.workspace.path}:{read:[],write:[]},prepareInput:async()=>{
+   try{result=await this.sessions.submit({session_key:request.submission.session_id,binding:{...binding,engine:binding.engine},cwd:session.cwd,input:request.input,input_sha256:request.submission.input_sha256,submission_id:request.submission.submission_id,output_schema:request.submission.output_schema,assertCurrent:()=>{assertCurrent();if(state.stopped||Date.now()>=state.deadline)throw Error('Native execution authority expired');},prepareResources:async()=>resources?{read:resources.read,write:resources.write,resourceRoot:resources.workspace.path}:{read:[],write:[]},prepareInput:async()=>{
+    if(core)return request.input;
     if(request.submission.codebases?.length){
      if(!this.options.codebases)throw Error('Native Codebase preparation is unavailable');
      resources=await this.options.codebases.prepared({session_id:request.submission.session_id,submission_id:request.submission.submission_id,run_id:request.submission.run_id},assertCurrent);assertCurrent();
@@ -284,6 +293,7 @@ export class CodexEngineService {
    this.clearPreparationLease(request.submission.submission_id);
    if(this.active.get(state.threadId)===state){
     state.turnId=result.turn_id;state.projection=new CodexTurnProjection(result.thread_id,result.turn_id);
+    if(!core){
     const interactionAuthorized=()=>!state.stopped&&Date.now()<state.deadline&&this.options.authorized?.()!==false&&this.active.get(state.threadId)===state&&state.generation===(this.options.generation?.()??1);
     state.interactions=new CodexInteractions(result.thread_id,result.turn_id,e=>this.publish(state,e),interactionAuthorized,params=>{
      const current=()=>{assertCurrent();if(!interactionAuthorized())throw Error('Codex interaction steering authority expired');};
@@ -310,6 +320,7 @@ export class CodexEngineService {
     const checkCurrent=()=>{assertCurrent();if(state.stopped||Date.now()>=state.deadline||this.active.get(state.threadId)!==state||this.store.submission(state.submission.submission_id)?.status!=='running')throw Error('Native check authority expired');};
     const identity={session_id:state.submission.session_id,submission_id:state.submission.submission_id,run_id:state.submission.run_id};
     state.checks=new NativeCheckWindow({thread:result.thread_id,turn:result.turn_id,assertCurrent:checkCurrent,quiescent:()=>this.sessions.assertCheckQuiescent(identity.session_id,identity.submission_id,checkCurrent),snapshot:()=>this.checkContent(identity,checkCurrent),commands:()=>this.commandReceipts(identity),save:r=>this.store.recordCheck(identity.session_id,identity.submission_id,r)});
+    }
     state.releaseAcknowledgement();
     for(const early of state.early)this.notification(early.method,early.params);state.early=[];
     if(state.stopped&&this.active.get(state.threadId)===state)await this.stop(state);
@@ -337,6 +348,11 @@ export class CodexEngineService {
   }
   if(request.action==='renew'||request.action==='result'){
    if(request.action==='result')return{...request,result:this.store.result(request.session_id,request.submission_id)};
+   if(metadata.binding.role==='core'&&this.store.result(request.session_id,request.submission_id)){
+    // Completion can race the submit acknowledgement or a heartbeat. Confirm
+    // the durable terminal receipt without extending or reopening execution.
+    const {lease_ms:_lease,...reply}=request;return reply;
+   }
    const session=this.store.session(request.session_id),state=session?.thread_id?this.active.get(session.thread_id):undefined;
    if(!state||state.stopped||Date.now()>=state.deadline||state.submission.submission_id!==request.submission_id||state.generation!==(this.options.generation?.()??1))throw Error('Codex lease expired or generation changed');
    this.renewLease(state,request.lease_ms);const {lease_ms:_lease,...reply}=request;return reply;
@@ -422,6 +438,7 @@ export class CodexEngineService {
   const params=request.params as {threadId?:string;turnId?:string}|undefined,state=params?.threadId?this.active.get(params.threadId):undefined;
   const tool=(request.params as {tool?:unknown}|undefined)?.tool,knowledge=request.method==='item/tool/call'&&typeof tool==='string'&&tool.startsWith('luoshu_knowledge_');
   if(state&&!state.turnId)await state.acknowledged;
+  if(state?.submission.binding.role==='core')throw Error('Core sessions cannot execute native Worker tools or interactions');
   if(!state?.interactions||state.stopped||this.active.get(state.threadId)!==state||state.turnId!==params?.turnId){
    if(knowledge)return{success:false,contentItems:[{type:'inputText',text:JSON.stringify({error:'Knowledge operation is no longer authorized for this native turn'})}]};
    throw Error('Codex request has no acknowledged authorized turn');

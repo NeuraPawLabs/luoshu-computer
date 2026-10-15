@@ -4,7 +4,7 @@ import {isDeepStrictEqual} from 'node:util';
 import {z} from 'zod';
 
 const path=z.string().refine(p=>isAbsolute(p)&&normalize(p)===p&&p!=='/'&&!/[\u0000-\u001f\u007f]/u.test(p),'Invalid native permission path');
-const scopeSchema=z.object({session:z.string().min(1).max(200),cwd:path,runtime:path,read:z.array(path),write:z.array(path),resourceRoot:path.optional(),mode:z.enum(['workspace-write','danger-full-access']).default('workspace-write')}).strict();
+const scopeSchema=z.object({session:z.string().min(1).max(200),cwd:path,runtime:path,read:z.array(path),write:z.array(path),resourceRoot:path.optional(),mode:z.enum(['read-only','workspace-write','danger-full-access']).default('workspace-write')}).strict();
 export interface NativePermissions {
  id:string;cwd:string;runtime:string;runtimeWorkspaceRoots:string[];
  config:{filesystem:Record<string,'read'|'write'|Record<string,'read'|'write'>>;network:{enabled:boolean}};
@@ -15,6 +15,11 @@ const within=(parent:string,child:string)=>{const part=relative(parent,child);re
  * Callers resolve real paths before construction and verify native provenance. */
 export function nativePermissions(raw:z.input<typeof scopeSchema>):NativePermissions{
  const scope=scopeSchema.parse(raw),write=[...new Set([scope.cwd,...scope.write])].sort(),read=[...new Set([scope.runtime,...scope.read])].sort();
+ if(scope.mode==='read-only'){
+  if(scope.write.length||scope.read.length||scope.resourceRoot)throw Error('Core read-only permissions cannot grant Worker resources');
+  const config={filesystem:{':minimal':'read' as const,[scope.runtime]:'read' as const,[scope.cwd]:'read' as const},network:{enabled:false}};
+  return{id:'luoshu_'+createHash('sha256').update(JSON.stringify([scope.session,'core',scope.cwd,scope.runtime,config])).digest('hex'),cwd:scope.cwd,runtime:scope.runtime,config,runtimeWorkspaceRoots:[]};
+ }
  if(scope.mode==='danger-full-access')return{id:'luoshu_'+createHash('sha256').update(JSON.stringify([scope.session,'danger-full-access'])).digest('hex'),cwd:scope.cwd,runtime:scope.runtime,config:{filesystem:{':root':'write'},network:{enabled:true}},runtimeWorkspaceRoots:[scope.cwd]};
  if(write.some(w=>read.some(r=>within(w,r))))throw Error('Native write scope overlaps a read-only root or runtime');
  let filesystem:NativePermissions['config']['filesystem'];

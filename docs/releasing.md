@@ -27,8 +27,8 @@ No TLS certificate or manually created GitHub token is required. Actions uses it
 
    ```sh
    git push origin main
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v0.1.1
+   git push origin v0.1.1
    ```
 
    Use the current version for later releases. If an unpublished local tag already exists, verify it points at the release commit before pushing. Never reassign a published tag or replace an existing Release's assets.

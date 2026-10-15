@@ -127,7 +127,10 @@ export class WorkerClient {
       if(!this.authenticated||!this.onAssistantEngineRequest)return;
       const generation=this.generation,socket=this.ws;
       try{const response=engineWireResponseSchema.parse(await this.onAssistantEngineRequest(message.request));if(this.authenticated&&this.generation===generation&&this.ws===socket)await this.send({type:'assistant_engine_response',response});}
-      catch(error){if(this.authenticated&&this.generation===generation&&this.ws===socket)await this.send({type:'assistant_engine_error',request_id:message.request.request_id,code:'ENGINE_REQUEST_FAILED',message:String(error instanceof Error?error.message:error).slice(0,2000),retryable:false});}
+      catch(error){
+       const capacity=message.request.action==='submit'&&message.request.submission.binding.role==='core'&&(error as {code?:unknown})?.code==='DEVICE_CORE_CAPACITY_UNAVAILABLE'&&(error as {retryable?:unknown})?.retryable===true;
+       if(this.authenticated&&this.generation===generation&&this.ws===socket)await this.send({type:'assistant_engine_error',request_id:message.request.request_id,code:capacity?'DEVICE_CORE_CAPACITY_UNAVAILABLE':'ENGINE_REQUEST_FAILED',message:String(error instanceof Error?error.message:error).slice(0,2000),retryable:capacity});
+      }
       return;
     }
     if(message.type==='execution_recovery_request'){

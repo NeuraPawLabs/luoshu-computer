@@ -18,6 +18,8 @@ export const engineBindingSchema = z.object({
   engine: agentEngineConfigSchema,
   topic_thread_id: idSchema.optional(),
   context_generation: z.number().int().positive().optional(),
+  /** Core sessions ask Codex for a decision envelope; Worker sessions execute a task. */
+  role: z.enum(['core','worker']).optional(),
 }).strict().superRefine((value,ctx)=>{
   if((value.topic_thread_id===undefined)!==(value.context_generation===undefined)){
     ctx.addIssue({code:'custom',message:'Topic and context generation must be provided together'});
@@ -39,6 +41,7 @@ export const engineSubmissionSchema = z.object({
   task_id: idSchema.nullable(),
   task_revision: z.number().int().positive().nullable(),
   codebases:nativeCodebaseSpecsSchema.optional(),
+  output_schema:z.record(z.string(),z.unknown()).optional(),
 }).strict().superRefine((value, ctx) => {
   if ((value.task_id === null) !== (value.task_revision === null)) {
     ctx.addIssue({code: 'custom', message: 'Task ID and revision must be provided together'});
@@ -46,6 +49,15 @@ export const engineSubmissionSchema = z.object({
   const input = new Set(value.input_message_ids);
   if (value.context_message_ids.some(id => input.has(id))) {
     ctx.addIssue({code: 'custom', message: 'Input messages cannot be repeated in context'});
+  }
+  if (value.binding.role === 'core' && value.output_schema === undefined) {
+    ctx.addIssue({code:'custom',path:['output_schema'],message:'Core submissions require an output schema'});
+  }
+  if (value.binding.role === 'core' && value.codebases?.length) {
+    ctx.addIssue({code:'custom',path:['codebases'],message:'Core submissions cannot carry Worker codebase authority'});
+  }
+  if (value.binding.role !== 'core' && value.output_schema !== undefined) {
+    ctx.addIssue({code:'custom',path:['output_schema'],message:'Only Core submissions may request structured model decisions'});
   }
 });
 export type EngineSubmission = z.infer<typeof engineSubmissionSchema>;
