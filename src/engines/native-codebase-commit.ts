@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import {constants} from 'node:fs';
-import {mkdtemp,open,rm,realpath,lstat,readlink} from 'node:fs/promises';
+import {mkdtemp,open,rm,realpath,lstat,readlink,readdir} from 'node:fs/promises';
 import {join,dirname,basename} from 'node:path';
 import type {CodebaseAssignment} from '../protocol/index.js';
 import {codebaseExecutionResultSchema} from '../protocol/index.js';
@@ -38,13 +38,13 @@ export class NativeCodebaseCommits {
   this.assertSessionSettled(session);
   this.db.prepare("DELETE FROM native_codebase_commits WHERE json_extract(identity_json,'$.identity.session_id')=?").run(session);
  }
- async collect(identity:Identity,assignment:CodebaseAssignment,prepared:PreparedCodebase,assertCurrent:()=>void){
+ async collect(identity:Identity,assignment:CodebaseAssignment,prepared:PreparedCodebase,assertCurrent:()=>void,options:{gitDir?:string;wholeRepository?:boolean}={}){
   assertCurrent();
-  if(assignment.access_mode!=='write'||assignment.root_path==='.'||!assignment.branch)throw Error('Scoped commit requires a write subdirectory');
-  const repo=prepared.repository_path,root=prepared.checkout_path,prefix=assignment.root_path+'/',ref='refs/heads/'+assignment.branch;
-  if(await realpath(repo)!==repo||await realpath(root)!==root||await realpath(join(repo,'.git'))!==join(repo,'.git'))throw Error('Native commit paths must be canonical');
-  const git=async(args:string[],extra:Partial<Parameters<typeof runGitCommand>[1]>={})=>{assertCurrent();const result=await runGitCommand(args,{cwd:repo,isolated:true,...extra});assertCurrent();return result;};
-  const key=JSON.stringify({identity,assignment,repo,root});
+  if(assignment.access_mode!=='write'||assignment.root_path==='.'&&!options.wholeRepository||!assignment.branch)throw Error('Scoped commit requires a write subdirectory');
+  const repo=prepared.repository_path,root=prepared.checkout_path,prefix=assignment.root_path==='.'?'':assignment.root_path+'/',gitDir=options.gitDir??join(prepared.repository_path,'.git'),ref='refs/heads/'+assignment.branch;
+  if(await realpath(repo)!==repo||await realpath(root)!==root||await realpath(gitDir)!==gitDir)throw Error('Native commit paths must be canonical');
+  const git=async(args:string[],extra:Partial<Parameters<typeof runGitCommand>[1]>={})=>{assertCurrent();const result=await runGitCommand(options.gitDir?['--git-dir='+gitDir,'--work-tree='+repo,...args]:args,{cwd:repo,isolated:true,...extra});assertCurrent();return result;};
+  const key=JSON.stringify({identity,assignment,repo,root,...(options.gitDir?{gitDir}:{})});
   let receipt=this.db.prepare('SELECT * FROM native_codebase_commits WHERE run_id=? AND codebase_id=?').get(identity.run_id,assignment.id) as Receipt|undefined;
   if(receipt&&receipt.identity_json!==key)throw Error('Native commit identity conflict');
   if(await git(['symbolic-ref','HEAD'])!==ref)throw Error('Native commit branch changed');
@@ -53,15 +53,20 @@ export class NativeCodebaseCommits {
   const untracked=paths(await git(['ls-files','--others','--exclude-standard','-z'],{raw:true}));
   if(untracked.some(p=>!p.startsWith(prefix)))throw Error('Native subdirectory has changes outside its scope');
   const baseEntries=paths(await git(['ls-tree','-r','-z',assignment.base_commit],{raw:true})).map(entry=>{const tab=entry.indexOf('\t'),[mode,type,hash]=entry.slice(0,tab).split(' ');if(tab<0||!mode||!hash||!type)throw Error('Invalid Git tree entry');return{mode,type,hash,path:entry.slice(tab+1)};});
+  const unchangedGitlink=async(path:string)=>{
+   try{const location=join(repo,path),info=await lstat(location);if(!info.isDirectory()||info.isSymbolicLink()||(await readdir(location)).length)throw Error('Task submodule content changes are unsupported');}
+   catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
+  };
   // Never diff the working tree: Git may invoke configured clean filters even
   // with --no-textconv. Compare raw bytes outside the subtree with base blobs.
   for(const entry of baseEntries.filter(e=>!e.path.startsWith(prefix))){
+   if(options.wholeRepository&&entry.mode==='160000'&&entry.type==='commit'){await unchangedGitlink(entry.path);continue;}
    if(entry.type!=='blob')throw Error('Native subdirectory sibling metadata is unsupported');
    const file=await fileBytes(repo,entry.path,true);
    if(!file||file.mode!==entry.mode||await git(['hash-object','--stdin','--no-filters'],{input:file.bytes})!==entry.hash)throw Error('Native subdirectory has changes outside its scope');
   }
   const tracked=baseEntries.filter(e=>e.path.startsWith(prefix)).map(e=>e.path);
-  const sealed=receipt?paths(await git(['ls-tree','-r','-z','--name-only',receipt.tree,'--',':(literal)'+assignment.root_path],{raw:true})):[];
+  const sealed=receipt?paths(await git(['ls-tree','-r','-z','--name-only',receipt.tree,...(prefix?['--',':(literal)'+assignment.root_path]:[])],{raw:true})):[];
   const candidates=[...new Set([...tracked,...sealed,...untracked])].sort();
   const temp=await mkdtemp(join(dirname(repo),'.luoshu-index-')),indexFile=join(temp,'index');
   try{
@@ -69,7 +74,12 @@ export class NativeCodebaseCommits {
    for(const path of candidates){
     assertCurrent();
     if(!path.startsWith(prefix)||path.split('/').some(p=>p==='..'||p==='.'||p==='.git')||/[\u0000-\u001f\u007f]/u.test(path))throw Error('Invalid native commit path');
-    const file=await fileBytes(repo,path);
+    const base=baseEntries.find(entry=>entry.path===path);
+    if(options.wholeRepository&&base?.mode==='160000'&&base.type==='commit'){
+     await unchangedGitlink(path);await git(['update-index','--add','--cacheinfo',base.mode,base.hash,path],{indexFile});continue;
+    }
+    const file=await fileBytes(repo,path,options.wholeRepository);
+    if(file?.mode==='120000'&&(base?.mode!=='120000'||await git(['hash-object','--stdin','--no-filters'],{input:file.bytes})!==base.hash))throw Error('Task delivery cannot add or change symbolic links');
     if(file){const hash=await git(['hash-object','-w','--stdin','--no-filters'],{input:file.bytes});await git(['update-index','--add','--cacheinfo',file.mode,hash,path],{indexFile});}
     else await git(['update-index','--force-remove','--',path],{indexFile});
    }
@@ -86,7 +96,7 @@ export class NativeCodebaseCommits {
    if(receipt.head&&receipt.head!==commit)throw Error('Native commit receipt conflict');
    this.db.prepare('UPDATE native_codebase_commits SET head=? WHERE run_id=? AND codebase_id=?').run(commit,identity.run_id,assignment.id);
    if(await git(['symbolic-ref','HEAD'])!==ref)throw Error('Native commit branch changed during collection');
-   await this.publications.publish(join(repo,'.git'),key,indexFile,assertCurrent,async()=>{
+   await this.publications.publish(gitDir,key,indexFile,assertCurrent,async()=>{
     if(await git(['symbolic-ref','HEAD'])!==ref)throw Error('Native commit branch changed during publication');
     const current=await git(['rev-parse',ref]);
     if(current!==commit)await git(['update-ref',ref,commit,assignment.base_commit]);

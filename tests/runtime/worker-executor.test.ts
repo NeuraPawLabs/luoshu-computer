@@ -14,6 +14,66 @@ const command=promisify(execFile);
 const assignment:Assignment={attempt_id:'execution_1',lease_epoch:1,agent:'codex',instruction:'Summarize input',input_files:[],codebases:[],timeout_seconds:30};
 const delay=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 async function setup(){const dir=await mkdtemp(join(tmpdir(),'luoshu-executor-'));const state=new WorkerState(join(dir,'db'));state.recordStart(assignment.attempt_id,1,assignment);return{dir,state};}
+test('scoped assignments use a fixed local envelope even when device settings allow full access',async()=>{
+ const {dir,state}=await setup();let scope:any,legacy=0;
+ const scoped={...assignment,permission_scope:'task_workspace' as const};
+ state.db.prepare('UPDATE worker_executions SET assignment_json=? WHERE attempt_id=?').run(JSON.stringify(scoped),scoped.attempt_id);
+ const executor=new Executor({state,stateDir:dir,emit:event=>state.appendEvent(event),
+  taskWorkspace:async input=>{scope=input;await writeFile(input.write[0]+'/report.txt','done');return{exitCode:0,summary:'done',checks:[],events:[],argv:[]};},
+  agents:{codex:async()=>{legacy++;throw Error('legacy full-access runner must not be used');}}});
+ executor.updateConfig({},'danger-full-access');
+ try{
+  expect((await executor.runAttempt(scoped,5000)).status).toBe('succeeded');
+  expect(legacy).toBe(0);expect(scope.cwd).toBe(join(dir,'workspaces',assignment.attempt_id,'scratch'));
+  expect(scope.read).toEqual([join(dir,'workspaces',assignment.attempt_id,'inputs')]);
+  expect(scope.write).toEqual([join(dir,'workspaces',assignment.attempt_id,'outputs')]);
+  expect(scope).not.toHaveProperty('env');expect(scope).not.toHaveProperty('sandboxMode');
+ }finally{await executor.stopAll('cleanup');state.close();}
+});
+
+test('scoped subtree edits produce committed delivery across successive steps without granting the parent repository',async()=>{
+ const {dir,state}=await setup(),repo=join(dir,'source');await mkdir(join(repo,'src'),{recursive:true});
+ await command('git',['init','-b','main'],{cwd:repo});await command('git',['config','user.email','fixture@test'],{cwd:repo});await command('git',['config','user.name','Fixture'],{cwd:repo});
+ await writeFile(join(repo,'src','main.txt'),'initial');await writeFile(join(repo,'private.txt'),'outside scope');await command('git',['add','.'],{cwd:repo});await command('git',['commit','-m','initial'],{cwd:repo});
+ const base=(await command('git',['rev-parse','HEAD'],{cwd:repo})).stdout.trim();let edits=0;
+ const scoped:Assignment={...assignment,permission_scope:'task_workspace',attempt_id:'subtree-step-1',run_id:'same-run',codebases:[{id:'11111111-1111-4111-8111-111111111111',alias:'code',access_mode:'write',source:{kind:'local',path:repo},root_path:'src',default_branch:'main',base_commit:base,branch:'luoshu/feature/subtree'}]};
+ const executor=new Executor({state,stateDir:dir,developmentRoots:[dir],emit:event=>state.appendEvent(event),taskWorkspace:async input=>{
+  const root=input.write.find(path=>path.endsWith('/src'))!;expect(root).toBeTruthy();expect(input.write).not.toContain(root.slice(0,-4));
+  await writeFile(join(root,'main.txt'),'edit-'+(++edits));await writeFile(join(root,'中文.txt'),'中文报告 '+edits);return{exitCode:0,summary:'edited',checks:[],events:[],argv:[]};
+ }});
+ try{
+  for(const attempt_id of ['subtree-step-1','subtree-step-2']){
+   const current={...scoped,attempt_id};state.recordStart(attempt_id,1,current);
+   const result=await executor.runAttempt(current,5000);
+   expect(result,result.error).toMatchObject({status:'succeeded',codebases:[{result:'changed',changed_paths:['main.txt','中文.txt']}]});
+  }
+  expect(edits).toBe(2);expect(await readFile(join(repo,'src','main.txt'),'utf8')).toBe('initial');
+ }finally{await executor.stopAll('cleanup');state.close();}
+});
+
+test('scoped repository collection ignores model-controlled Git metadata and never runs its host commands',async()=>{
+ const {rm,access}=await import('node:fs/promises');
+ const {dir,state}=await setup(),repo=join(dir,'source'),marker=join(dir,'HOST-ESCAPE');await mkdir(repo);
+ await command('git',['init','-b','main'],{cwd:repo});await command('git',['config','user.email','fixture@test'],{cwd:repo});await command('git',['config','user.name','Fixture'],{cwd:repo});
+ await writeFile(join(repo,'index.txt'),'initial');await command('git',['add','.'],{cwd:repo});await command('git',['commit','-m','initial'],{cwd:repo});
+ const base=(await command('git',['rev-parse','HEAD'],{cwd:repo})).stdout.trim();
+ const scoped:Assignment={...assignment,permission_scope:'task_workspace',attempt_id:'whole-repository',run_id:'whole-run',codebases:[{id:'11111111-1111-4111-8111-111111111111',alias:'code',access_mode:'write',source:{kind:'local',path:repo},root_path:'.',default_branch:'main',base_commit:base,branch:'luoshu/feature/root'}]};
+ state.recordStart(scoped.attempt_id,1,scoped);
+ const executor=new Executor({state,stateDir:dir,developmentRoots:[dir],emit:event=>state.appendEvent(event),taskWorkspace:async input=>{
+  const root=input.write.find(path=>path.endsWith('/code'))!;expect(root).toBeTruthy();
+  // The real object database is outside every model write root. Replacing
+  // the visible marker must never redirect host postprocessing into this one.
+  expect(await readFile(join(root,'.git'),'utf8')).toContain('/.task-git/code');
+  await rm(join(root,'.git'));await mkdir(join(root,'.git'));
+  await writeFile(join(root,'.git','config'),'[core]\nfsmonitor = touch '+marker+'\n');
+  await writeFile(join(root,'index.txt'),'edited');return{exitCode:0,summary:'edited',checks:[],events:[],argv:[]};
+ }});
+ try{
+  const result=await executor.runAttempt(scoped,5000);
+  expect(result.status).toBe('succeeded');expect(result.codebases[0]).toMatchObject({result:'changed',changed_paths:['index.txt']});
+  await expect(access(marker)).rejects.toThrow();
+ }finally{await executor.stopAll('cleanup');state.close();}
+});
 test('lease renewal moves the live process deadline and rejects the wrong epoch',async()=>{
  const {dir,state}=await setup();let aborted=false;
  const executor=new Executor({state,stateDir:dir,leaseGraceMs:0,emit:event=>state.appendEvent(event),agents:{codex:async input=>{await new Promise<void>(resolve=>input.signal.addEventListener('abort',()=>{aborted=true;resolve();},{once:true}));return{exitCode:130,summary:'cancelled',checks:[],events:[],argv:[]};}}});

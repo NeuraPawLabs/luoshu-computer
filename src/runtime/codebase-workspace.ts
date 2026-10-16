@@ -166,7 +166,8 @@ function paths(output: string): string[] {
   return output.split('\n').map(value => value.trim()).filter(Boolean);
 }
 
-export async function collectCodebaseResults(workspace: CodebaseWorkspace, assignments: CodebaseAssignment[]): Promise<CodebaseExecutionResult[]> {
+export async function collectCodebaseResults(workspace: CodebaseWorkspace, assignments: CodebaseAssignment[],options:{isolated?:boolean}={}): Promise<CodebaseExecutionResult[]> {
+  const git=(args:string[],cwd:string)=>runGitCommand(args,{cwd,isolated:options.isolated});
   const byId = new Map(workspace.codebases.map(value => [value.id, value]));
   const results: CodebaseExecutionResult[] = [];
   for (const assignment of assignments) {

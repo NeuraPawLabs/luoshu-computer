@@ -176,6 +176,16 @@ export class CodexAppServerClient {
   const config=z.object({config:z.object({mcp_servers:z.record(z.string(),z.unknown()).nullish()})}).parse(value);
   return coreToolConfig(config.config.mcp_servers??{});
  }
+ async taskThreadConfig(cwd:string):Promise<Record<string,unknown>>{
+  const value=await this.request<unknown>('config/read',{cwd,includeLayers:false});
+  const {config}=z.object({config:z.object({mcp_servers:z.record(z.string(),z.unknown()).nullish(),
+   shell_environment_policy:z.object({set:z.record(z.string(),z.unknown()).nullish()}).nullish()})}).parse(value);
+  return{...coreToolConfig(config.mcp_servers??{}),'features.shell_tool':true,'features.unified_exec':true,'features.apply_patch_freeform':true,
+   'shell_environment_policy.inherit':'none','shell_environment_policy.include_only':[],'shell_environment_policy.exclude':['*'],
+   // Config tables merge; explicitly replace every inherited value rather
+   // than sending an empty set that could retain configured credentials.
+   'shell_environment_policy.set':Object.fromEntries(Object.keys(config.shell_environment_policy?.set??{}).map(key=>[key,'']))};
+ }
  backgroundTerminals(params:{threadId:string;cursor?:string}){return this.request<unknown>('thread/backgroundTerminals/list',params);}
  terminateBackgroundTerminal(params:{threadId:string;processId:string}){return this.request<unknown>('thread/backgroundTerminals/terminate',params).then(value=>z.object({terminated:z.boolean()}).parse(value));}
  startTurn(params:{threadId:string;input:unknown[];runtimeWorkspaceRoots?:string[];permissions?:string;outputSchema?:Record<string,unknown>}){return this.request<unknown>('turn/start',params).then(value=>this.nativeObject(value,'turn'));}

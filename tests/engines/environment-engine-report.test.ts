@@ -3,10 +3,12 @@ import {buildEnvironmentReport} from '../../src/runtime/environment.js';
 test('detected Codex without an available audit remains unavailable',async()=>{
  const report=await buildEnvironmentReport({name:'fixture',capacity:1,agentPaths:{codex:'/fixture/codex'},probe:async tool=>tool==='codex'?'codex 0.154.0':undefined});
  expect(report.assistant_engines).toContainEqual(expect.objectContaining({agent:'codex',status:'unavailable',reason:'permissions_unavailable'}));
+ expect(report.tools['luoshu.task_scope']).toBeUndefined();
 });
 test('detected current Codex is ready when the approved systemd supervisor is available',async()=>{
  const report=await buildEnvironmentReport({name:'fixture',capacity:1,supervisorAvailable:async()=>true,nativeAudit:async()=> 'ready',agentPaths:{codex:'/fixture/codex'},probe:async tool=>tool==='codex'?'codex 0.160.0':undefined});
  expect(report.assistant_engines).toContainEqual(expect.objectContaining({agent:'codex',status:'ready',adapter_version:1,reason:null,features:expect.arrayContaining(['delivery','task_operations'])}));
+ expect(report.tools['luoshu.task_scope']).toBe('1');
 });
 test('verified Codex patch release is ready when the approved systemd supervisor is available',async()=>{
  const report=await buildEnvironmentReport({name:'fixture',capacity:1,supervisorAvailable:async()=>true,nativeAudit:async()=> 'ready',agentPaths:{codex:'/fixture/codex'},probe:async tool=>tool==='codex'?'codex 0.160.1':undefined});

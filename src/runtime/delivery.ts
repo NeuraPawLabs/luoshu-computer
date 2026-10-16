@@ -1,3 +1,4 @@
+import {TaskCodebaseResults} from './task-codebase-results.js';
 import {randomUUID} from 'node:crypto';
 import {constants} from 'node:fs';
 import {mkdir,open,link,unlink,realpath,lstat} from 'node:fs/promises';
@@ -73,7 +74,7 @@ export class WorkerDeliveryService {
    if(purpose==='execution_result'&&assignment.codebases.length&&!cp!.evidence!.codebases.length){
     if(!assignment.run_id)throw Error('Codebase Run identity missing');
     const workspace=await existingCodebaseWorkspace(this.options.stateDir,assignment.run_id,assignment.codebases);
-    const codebases=await collectCodebaseResults(workspace,assignment.codebases);
+    const codebases=assignment.permission_scope==='task_workspace'?await new TaskCodebaseResults(this.db).collect(assignment,workspace,()=>signal.throwIfAborted()):await collectCodebaseResults(workspace,assignment.codebases);
     signal.throwIfAborted();this.options.checkpoints.recordCodebases(executionId,codebases);cp=this.options.checkpoints.read(executionId);
    }
    const snapshot=await collectOutputSnapshot(resolve(this.options.stateDir,'workspaces',executionId,'outputs'),signal);

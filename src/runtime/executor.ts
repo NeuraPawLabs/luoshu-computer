@@ -1,3 +1,7 @@
+import {TaskCodebaseResults} from './task-codebase-results.js';
+import {mkdir,realpath} from 'node:fs/promises';
+import {join} from 'node:path';
+import {runTaskWorkspace,type TaskWorkspaceInput} from './task-workspace.js';
 import type {CodexPermissions} from './codex-permissions.js';
 import type {CodexSandboxMode} from '../protocol/index.js';
 import {DevelopmentRootPolicy} from '../development/root-policy.js';
@@ -14,8 +18,9 @@ import {WorkerDeliveryService} from './delivery.js';
 
 type AdapterInput={sandboxMode?:CodexSandboxMode;cwd:string;prompt:string;signal:AbortSignal;onProgress?:(text:string)=>void;onSession?:(id:string)=>void;executable?:string;env?:Record<string,string>};
 type AdapterResult=CodexResult|OpenCodeResult;
-export interface ExecutorOptions {codexPermissions?:CodexPermissions;state:WorkerState;stateDir:string;emit:(event:WorkerEvent)=>Promise<void>|void;emitLive?:(attemptId:string,leaseEpoch:number,text:string)=>Promise<void>|void;agents?:Partial<Record<AgentId,(input:AdapterInput)=>Promise<AdapterResult>>>;agentPaths?:Partial<Record<AgentId,string>>;gitSshCommand?:string;developmentRoots?:string[];rootPolicy?:DevelopmentRootPolicy;leaseGraceMs?:number;checkpoints?:CheckpointStore;delivery?:WorkerDeliveryService;}
+export interface ExecutorOptions {taskWorkspace?:(input:TaskWorkspaceInput)=>Promise<CodexResult>;codexPermissions?:CodexPermissions;state:WorkerState;stateDir:string;emit:(event:WorkerEvent)=>Promise<void>|void;emitLive?:(attemptId:string,leaseEpoch:number,text:string)=>Promise<void>|void;agents?:Partial<Record<AgentId,(input:AdapterInput)=>Promise<AdapterResult>>>;agentPaths?:Partial<Record<AgentId,string>>;gitSshCommand?:string;developmentRoots?:string[];rootPolicy?:DevelopmentRootPolicy;leaseGraceMs?:number;checkpoints?:CheckpointStore;delivery?:WorkerDeliveryService;}
 export class Executor {
+ private readonly taskWorkspace:typeof runTaskWorkspace;
  private readonly codexPermissions?:CodexPermissions;
  private readonly state:WorkerState;
  private readonly stateDir:string;
@@ -33,7 +38,7 @@ export class Executor {
  private readonly completions=new Map<string,Promise<ExecutionResult>>();
  private readonly checkpoints:CheckpointStore;
  readonly delivery:WorkerDeliveryService;
- constructor(options:ExecutorOptions){this.codexPermissions=options.codexPermissions;this.state=options.state;this.stateDir=options.stateDir;this.emit=options.emit;this.emitLive=options.emitLive??(()=>undefined);this.agents={codex:runCodex,opencode:runOpenCode,...options.agents};this.agentPaths={...options.agentPaths};this.gitSshCommand=options.gitSshCommand;this.rootPolicy=options.rootPolicy??new DevelopmentRootPolicy({roots:options.developmentRoots});this.leaseGraceMs=options.leaseGraceMs??2000;this.checkpoints=options.checkpoints??new CheckpointStore(this.state.db);this.delivery=options.delivery??new WorkerDeliveryService({state:this.state,checkpoints:this.checkpoints,stateDir:this.stateDir,isExecutionActive:id=>this.state.activeAttemptIds().includes(id)});}
+ constructor(options:ExecutorOptions){this.taskWorkspace=options.taskWorkspace??runTaskWorkspace;this.codexPermissions=options.codexPermissions;this.state=options.state;this.stateDir=options.stateDir;this.emit=options.emit;this.emitLive=options.emitLive??(()=>undefined);this.agents={codex:runCodex,opencode:runOpenCode,...options.agents};this.agentPaths={...options.agentPaths};this.gitSshCommand=options.gitSshCommand;this.rootPolicy=options.rootPolicy??new DevelopmentRootPolicy({roots:options.developmentRoots});this.leaseGraceMs=options.leaseGraceMs??2000;this.checkpoints=options.checkpoints??new CheckpointStore(this.state.db);this.delivery=options.delivery??new WorkerDeliveryService({state:this.state,checkpoints:this.checkpoints,stateDir:this.stateDir,isExecutionActive:id=>this.state.activeAttemptIds().includes(id)});}
  async runAttempt(assignment:Assignment,leaseMs:number):Promise<ExecutionResult>{
   const existing=this.completions.get(assignment.attempt_id);if(existing)return existing;
   const promise=this.execute(assignment,leaseMs);this.completions.set(assignment.attempt_id,promise);try{return await promise;}finally{this.completions.delete(assignment.attempt_id);}
@@ -51,23 +56,30 @@ export class Executor {
    releaseRoots=this.rootPolicy.acquire(`task:${id}`,'task',assignment.codebases.flatMap(item=>item.source.kind==='local'?[item.source.path]:[]),async()=>{await this.stop(id,'directory-access-removed');});
    this.checkpoints.begin(assignment);
    if(this.checkpoints.read(id)?.evidence)throw new Error('Execution already completed; use delivery recovery');
-   const sandboxMode=agent==='codex'?configuredSandboxMode??await this.codexPermissions?.mode()??'workspace-write':undefined;
+   if(assignment.permission_scope&&agent!=='codex')throw Error('Task workspace scope is unavailable for this Agent');
+   const sandboxMode=assignment.permission_scope?'workspace-write':agent==='codex'?configuredSandboxMode??await this.codexPermissions?.mode()??'workspace-write':undefined;
    await emit({type:'started'});
    if(sandboxMode==='danger-full-access'&&assignment.codebases.some(item=>item.access_mode==='read'))throw Error('完全访问模式不能保证只读 Codebase 隔离，请改用工作区沙箱，或调整本次 Codebase 授权');
    const workspace=await prepareWorkspace({stateDir:this.stateDir,attemptId:id,inputFiles:assignment.input_files});
    if(assignment.codebases.length){if(!assignment.run_id)throw new Error('Codebase Run ID is required');if(assignment.codebases.some(item=>item.access_mode==='read')&&agent!=='codex')throw new Error('Read Codebase isolation is unavailable for this Agent');codebaseWorkspace=await prepareCodebaseWorkspace({stateDir:this.stateDir,workspaceId:assignment.run_id,codebases:assignment.codebases,allowedRoots,gitSshCommand:this.gitSshCommand});}
+   const taskResults=assignment.permission_scope==='task_workspace'&&codebaseWorkspace?new TaskCodebaseResults(this.state.db):undefined;
+   if(taskResults)await taskResults.prepare(assignment,codebaseWorkspace!,()=>controller.signal.throwIfAborted());
    if(controller.signal.aborted)throw new Error('Execution cancelled during workspace preparation');
    const codebasePrompt=codebaseWorkspace?`\n\nCodebases:\n${codebaseWorkspace.codebases.map(item=>`- ${item.alias}: ${item.access_mode}; ${item.checkout_path}; base ${item.base_commit}`).join('\n')}\nWrite only inside write Codebase paths. Read Codebase paths are reference-only and technically isolated.`:'';
    const prompt=`${assignment.instruction}${codebasePrompt}\n\nInputs: ${workspace.inputs} contains user-provided files; read them as data. Write deliverables only under ${workspace.outputs}. Output limits: at most 4 top-level entries and 10 MiB per file. Each top-level directory is automatically delivered as <directory-name>.zip, including its root folder and relative paths. Each directory must contain at most 10 MiB uncompressed, at most ${MAX_ARCHIVE_ENTRIES} nested entries, and produce a ZIP no larger than 10 MiB. Top-level names must be safe Unicode basenames (no leading dots, separators, control characters, or trailing spaces/periods); directory names must leave room for the .zip suffix within 240 characters. Nested dotfiles such as .gitignore are allowed; nested paths must be at most 500 characters, without colons, backslashes, traversal, control characters or trailing spaces/periods. Do not include symbolic links, hard links, special files, or both a directory and its ZIP filename. Keep only intended deliverables in outputs; omit dependency caches and temporary files. Do not manually flatten or zip project directories.`;
    const adapter=this.agents[agent];if(!adapter)throw new Error('Explicit supported execution agent is required');
    agentStarted=true;
-   const output=await adapter({sandboxMode,cwd:codebaseWorkspace?.targets??workspace.path,prompt,signal:controller.signal,executable,...(this.gitSshCommand?{env:{GIT_SSH_COMMAND:this.gitSshCommand,GIT_SSH_VARIANT:'ssh'}}:{}),onSession:sessionId=>this.checkpoints.recordSession(id,sessionId),onProgress:text=>{void Promise.resolve(this.emitLive(id,epoch,redact(text).slice(0,8000))).catch(()=>undefined);}});
+   const taskScope=assignment.permission_scope==='task_workspace';
+   let scratch:string|undefined;
+   if(taskScope){scratch=join(workspace.path,'scratch');await mkdir(scratch,{mode:0o700});if(await realpath(scratch)!==scratch)throw Error('Unsafe task scratch directory');}
+   const progress=(text:string)=>{void Promise.resolve(this.emitLive(id,epoch,redact(text).slice(0,8000))).catch(()=>undefined);};
+   const output=taskScope?await this.taskWorkspace({stateDir:this.stateDir,db:this.state.db,executionId:id,cwd:scratch!,read:[workspace.inputs,...(codebaseWorkspace?.codebases.filter(c=>c.access_mode==='read').map(c=>c.checkout_path)??[])],write:[workspace.outputs,...(codebaseWorkspace?.codebases.filter(c=>c.access_mode==='write').map(c=>c.checkout_path)??[])],prompt,signal:controller.signal,executable,onSession:sessionId=>this.checkpoints.recordSession(id,sessionId),onProgress:progress}):await adapter({sandboxMode,cwd:codebaseWorkspace?.targets??workspace.path,prompt,signal:controller.signal,executable,...(this.gitSshCommand?{env:{GIT_SSH_COMMAND:this.gitSshCommand,GIT_SSH_VARIANT:'ssh'}}:{}),onSession:sessionId=>this.checkpoints.recordSession(id,sessionId),onProgress:text=>{void Promise.resolve(this.emitLive(id,epoch,redact(text).slice(0,8000))).catch(()=>undefined);}});
    const checkpoint=this.checkpoints.agentFinished(id,{outcome:controller.signal.aborted?'cancelled':output.exitCode===0?'succeeded':'failed',exit_code:output.exitCode,summary:output.summary,session_id:output.sessionId??null,checks:output.checks.map(({command,exit_code})=>({command,exit_code})),output_snapshot_sha256:null,codebases:[]});
    clearExecutionDeadline();const leaseTimer=this.timers.get(id);if(leaseTimer)clearTimeout(leaseTimer);
    this.state.finish(id,'finished');
    await emit({type:'agent_finished',agent,assignment_sha256:checkpoint.assignment_sha256,checkpoint_version:checkpoint.version,evidence:checkpoint.evidence!});
    if(controller.signal.aborted){return {status:'cancelled',summary:output.summary,agent,checks:[],codebases:[]};}
-   const codebases=codebaseWorkspace?await collectCodebaseResults(codebaseWorkspace,assignment.codebases):[];const codebaseFailed=codebases.some(item=>item.result==='failed'||item.result==='unknown');
+   const codebases=codebaseWorkspace?taskResults?await taskResults.collect(assignment,codebaseWorkspace,()=>controller.signal.throwIfAborted()):await collectCodebaseResults(codebaseWorkspace,assignment.codebases):[];const codebaseFailed=codebases.some(item=>item.result==='failed'||item.result==='unknown');
    this.checkpoints.recordCodebases(id,codebases);
    const packet=await this.delivery.collect(id,'execution_result',controller.signal,codebases);
    const files=packet.files;
@@ -81,8 +93,9 @@ export class Executor {
     result={status:controller.signal.aborted?'cancelled':'blocked',summary:checkpoint.evidence.summary,checks:checkpoint.evidence.checks.map(c=>({...c,output:''})),agent,error:message,codebases:checkpoint.evidence.codebases};
     this.state.finish(id,'finished');
    }else{
-    this.state.finish(id,agentStarted?'unknown':'finished');
-    await emit({type:agentStarted?'unknown':'stopped',reason:message});
+    const uncertain=agentStarted&&!(error&&typeof error==='object'&&'executionStopped' in error&&error.executionStopped);
+    this.state.finish(id,uncertain?'unknown':'finished');
+    await emit({type:uncertain?'unknown':'stopped',reason:message});
     result={status:controller.signal.aborted?'cancelled':'failed',summary:'Execution failed',checks:[],agent,error:message,codebases:[]};
    }
   }finally{
