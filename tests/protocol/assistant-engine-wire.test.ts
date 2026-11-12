@@ -10,7 +10,7 @@ test('binding cleanup is narrowly scoped and echoes its complete immutable bindi
  expect(engineWireMessageSchema.safeParse({type:'assistant_engine_response',response:{action:'session_close',request_id:'r',session_id:'s',state:'closed'}}).success).toBe(false);
 });
 test('wire only accepts constrained assistant-engine actions and event provenance',()=>{
- const request={type:'assistant_engine_request' as const,request:{action:'submit' as const,lease_ms:120000,request_id:'44444444-4444-4444-8444-444444444444',submission:{submission_id:'55555555-5555-4555-8555-555555555555',batch_id:'66666666-6666-4666-8666-666666666666',run_id:'77777777-7777-4777-8777-777777777777',session_id:'88888888-8888-4888-8888-888888888888',binding,input_message_ids:['99999999-9999-4999-8999-999999999999'],context_message_ids:[],input_sha256:'a'.repeat(64),task_id:null,task_revision:null},input:[{type:'text' as const,text:'hello'}]}};
+ const request={type:'assistant_engine_request' as const,request:{action:'submit' as const,lease_ms:120000,request_id:'44444444-4444-4444-8444-444444444444',submission:{submission_id:'55555555-5555-4555-8555-555555555555',run_id:'77777777-7777-4777-8777-777777777777',session_id:'88888888-8888-4888-8888-888888888888',binding,input_message_ids:['99999999-9999-4999-8999-999999999999'],context_message_ids:[],input_sha256:'a'.repeat(64),task_id:null,task_revision:null},input:[{type:'text' as const,text:'hello'}]}};
  expect(engineWireMessageSchema.parse(request)).toEqual(request);
  expect(()=>engineWireMessageSchema.parse({...request,type:'assistant_engine_request',request:{...request.request,action:'shell_exec',command:'id'}})).toThrow();
 });

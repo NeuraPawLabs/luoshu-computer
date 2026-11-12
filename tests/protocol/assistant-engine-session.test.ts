@@ -8,6 +8,15 @@ test('a normal run has a session and no Task', () => {
   expect(value.run_id).toBe('run_1');
 });
 
+test.each(['worker', 'core'])('%s submissions require Run identity and reject an extra batch identity', role => {
+  const fixture = engineSubmissionFixture();
+  const submission = {...fixture, binding: {...fixture.binding, role},
+    ...(role === 'core' ? {output_schema: {type: 'object'}} : {})};
+  expect(engineSubmissionSchema.safeParse(submission).success).toBe(true);
+  expect(engineSubmissionSchema.safeParse({...submission, batch_id: 'batch_1'}).success).toBe(false);
+  expect(engineSubmissionSchema.safeParse({...submission, run_id: undefined}).success).toBe(false);
+});
+
 test('task id and revision are an inseparable explicit association', () => {
   const input = engineSubmissionFixture();
   expect(engineSubmissionSchema.safeParse({...input, task_id: 'task_1', task_revision: 2}).success).toBe(true);

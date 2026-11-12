@@ -11,7 +11,7 @@ import {NativeRunFiles} from '../../src/engines/native-files.js';
 const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,worker_id:'worker',agent:'codex' as const,adapter_version:1 as const}};
 const prepare={action:'session_prepare',request_id:'p',session_id:'s',workspace_id:'s',binding};
 const close={action:'session_close',request_id:'c',session_id:'s',binding};
-const input=[{type:'text',text:'hello'}],submission={session_id:'s',submission_id:'sub',run_id:'run',batch_id:'batch',binding,input_message_ids:['m'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
+const input=[{type:'text',text:'hello'}],submission={session_id:'s',submission_id:'sub',run_id:'run',binding,input_message_ids:['m'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
 function fixture(events:any[]=[]){
  const db=new Database(':memory:'),store=new CodexSessionStore(db),calls:string[]=[];
  const rpc:any={initialize:async()=>{},startThread:async()=>{calls.push('start');return{id:'thread'};},resumeThread:async()=>{calls.push('resume');return{id:'thread'};},startTurn:async()=>{calls.push('turn');return{id:'turn'};},interruptTurn:async()=>{},unsubscribeThread:async({threadId}:any)=>{calls.push('unsubscribe:'+threadId);return{status:'unsubscribed'};}};

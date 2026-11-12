@@ -65,6 +65,7 @@ export const engineEventPayloadSchema = z.discriminatedUnion('kind', [
   z.object({kind: z.literal('progress.delta'), item_id: nativeId, text: z.string()}).strict(),
   z.object({kind: z.literal('progress.final'), item_id: nativeId, text: z.string()}).strict(),
   z.object({kind: z.literal('conversation.title.request'), request_id: nativeId, update: conversationTitleUpdateSchema}).strict(),
+  z.object({kind: z.literal('thread.title.request'), request_id: nativeId, update: conversationTitleUpdateSchema}).strict(),
   z.object({kind:z.literal('knowledge.request'),request_id:nativeId,operation:engineKnowledgeOperationSchema}).strict(),
 ]);
 export type EngineEventPayload = z.infer<typeof engineEventPayloadSchema>;

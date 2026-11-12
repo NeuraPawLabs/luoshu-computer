@@ -306,7 +306,7 @@ export class CodexEngineService {
       return interactionAuthorized()&&row?.status==='running'&&row.session_key===state.submission.session_id&&row.thread_id===result.thread_id&&row.turn_id===result.turn_id;
      }catch{return false;}
     };
-    state.titleTools=new CodexTitleTools(result.thread_id,result.turn_id,titleAuthorized,(id,update)=>this.publishTitleRequest(state,{kind:'conversation.title.request',request_id:id,update}));
+    state.titleTools=new CodexTitleTools(result.thread_id,result.turn_id,titleAuthorized,(id,update,tool)=>this.publishTitleRequest(state,{kind:tool==='luoshu_thread_title'?'thread.title.request':'conversation.title.request',request_id:id,update}));
     const knowledgeCurrent=()=>{
      assertCurrent();const session=this.store.session(state.submission.session_id),row=this.store.active(state.submission.session_id);
      if(!titleAuthorized()||session?.thread_id!==result.thread_id||row?.submission_id!==state.submission.submission_id||state.threadId!==result.thread_id||state.turnId!==result.turn_id)throw Error('Native knowledge tool authority expired');
@@ -449,7 +449,7 @@ export class CodexEngineService {
     if(!state.knowledgeTools)return{success:false,contentItems:[{type:'inputText',text:JSON.stringify({error:'Native knowledge bridge unavailable'})}]};
     const work=state.knowledgeTools.handle(request);this.requests.add(work);try{return await work;}finally{this.requests.delete(work);}
    }
-   if(p.tool==='luoshu_conversation_title'){
+   if(p.tool==='luoshu_conversation_title'||p.tool==='luoshu_thread_title'){
     if(!state.titleTools)throw Error('Native title bridge unavailable');
     return state.titleTools.handle(request);
    }
@@ -534,7 +534,7 @@ export class CodexEngineService {
   const packet=this.eventPacket(state,event);
   try{void Promise.resolve(this.options.emit?.(packet)).catch(()=>{/* Durable final result remains available for reconciliation. */});}catch{/* Durable final result remains available for reconciliation. */}
  }
- private publishTitleRequest(state:ActiveTurn,event:Extract<EngineEventPayload,{kind:'conversation.title.request'}>):void|Promise<void>{
+ private publishTitleRequest(state:ActiveTurn,event:Extract<EngineEventPayload,{kind:'conversation.title.request'|'thread.title.request'}>):void|Promise<void>{
   if(!this.options.emit)throw Error('Native title transport unavailable');
   return this.options.emit(this.eventPacket(state,event));
  }

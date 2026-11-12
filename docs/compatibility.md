@@ -12,6 +12,14 @@ Codex/OpenCode are user-installed tools with their own accounts. The runtime det
 
 The Core database and scheduler remain in the parent repository; this independent repository runs the device-local and protocol suites. Protocol or execution-contract changes must also pass the corresponding Core integration tests before both systems are released.
 
+## Current source alignment
+
+The 2026-11-12 source correction aligns `src/protocol` with all 23 files in Core `packages/protocol/src` at `45bfb8d51380baff25422b1dfec2b4a1609f9cdd`. Both Core decisions and Worker execution submissions require `run_id`, `submission_id` and `session_id`; `batch_id` is rejected as an unknown field. Message batching remains an internal Core intake detail and is not a second execution identity on the wire.
+
+This correction also aligns Task creation's optional `task_kind` and `acceptance_criteria`, and the native `luoshu_thread_title` tool and `thread.title.request` event. Conversation and Thread title tools retain separate call identities, preserve the active Run's authority and use versioned Core receipts. Core-role sessions continue to expose no native Worker tools.
+
+Protocol version remains 8 because this checkout is catching up to the existing Core contract. The correction is a source change, not a published Computer release; an older 0.1.1 binary that requires `batch_id` is not fixed by restarting it. Build this corrected checkout for joint validation. Neither matching package versions nor the wire version alone proves that independently copied schemas agree.
+
 ## Device-backed Core Agent capability
 
 Wire protocol 8 alone does not establish support for the device-backed Core decision loop. Core also requires the Codex engine report to contain `core_agent_runtime`. Older Computer 0.1.0 installations lack this implementation and report, even though they can still execute Worker tasks; restarting or updating Codex alone does not add it. Upgrade to Computer 0.1.1 or later before selecting a device-backed Core Agent.

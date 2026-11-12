@@ -19,7 +19,7 @@ async function fixture(){
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:()=>workspace.path(),files,generation:()=>generation,authorized:()=>authorized});
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'test'}];
  const prepare={action:'session_prepare',request_id:'prepare',session_id:'session',workspace_id:'workspace',binding};
- const submit={action:'submit',request_id:'submit',lease_ms:120000,submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],task_id:null,task_revision:null,input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex')},input};
+ const submit={action:'submit',request_id:'submit',lease_ms:120000,submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],task_id:null,task_revision:null,input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex')},input};
  const control={request_id:'control',session_id:'session',run_id:'run',submission_id:'submission',authorization_revision:1};
  const terminal=()=>service.notification('turn/completed',{threadId:'thread',turn:{id:'turn',status:'completed',items:[]}});
  return{db,store,rpc,calls,files,workspace,service,prepare,submit,control,terminal,change:()=>generation++,revoke:()=>{authorized=false;},close:async()=>{await service.disconnect();db.close();await rm(root,{recursive:true,force:true});}};

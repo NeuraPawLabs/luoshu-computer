@@ -15,13 +15,15 @@ test('conversation title results distinguish strict success and failure receipts
 
 test('native title tool only accepts title metadata and explains ordinary-turn naming',()=>{
  const tools=protocol.nativeTitleTools();
- expect(tools).toHaveLength(1);
+ expect(tools).toHaveLength(2);
  expect(tools[0]).toMatchObject({type:'function',name:'luoshu_conversation_title',inputSchema:{type:'object',additionalProperties:false,required:['title','expected_version']}});
+ expect(tools[1]).toMatchObject({type:'function',name:'luoshu_thread_title',inputSchema:{type:'object',additionalProperties:false,required:['title','expected_version']}});
  expect(tools[0].description).toMatch(/substantive topic/i);
  expect(tools[0].description).toMatch(/metadata only/i);
  expect(tools[0].description).toMatch(/already-needed work calls/i);
  expect(tools[0].description).toMatch(/separate naming turn/i);
  expect(protocol.parseNativeTitleTool('luoshu_conversation_title',{title:' topic ',expected_version:0})).toEqual({title:'topic',expected_version:0});
+ expect(protocol.parseNativeTitleTool('luoshu_thread_title',{title:' thread ',expected_version:1})).toEqual({title:'thread',expected_version:1});
  expect(()=>protocol.parseNativeTitleTool('luoshu_task_create',{title:'topic',expected_version:0})).toThrow(/unsupported/i);
  for(const extra of [{owner_id:'alice'},{path:'/tmp'},{conversation_id:'room'},{action:'create'}])expect(()=>protocol.parseNativeTitleTool('luoshu_conversation_title',{title:'topic',expected_version:0,...extra})).toThrow();
 });
@@ -30,6 +32,7 @@ test('title requests append to the event union without changing reply result sch
  const event={kind:'conversation.title.request',request_id:'native-call',update:{title:'公司研究',expected_version:1}};
  expect(protocol.engineEventPayloadSchema.safeParse(event).success).toBe(true);
  expect(protocol.engineEventPayloadSchema.options[1].shape.kind.value).toBe('reply.final');
+ expect(protocol.engineEventPayloadSchema.safeParse({...event,kind:'thread.title.request'}).success).toBe(true);
  for(const invalid of [{...event,request_id:''},{...event,update:{...event.update,expected_version:-1}},{...event,owner_id:'alice'}])expect(protocol.engineEventPayloadSchema.safeParse(invalid).success).toBe(false);
 });
 

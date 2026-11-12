@@ -30,7 +30,7 @@ test('native transport preserves only the explicit Core capacity refusal as retr
  const f=await setup({onAssistantEngineRequest:async()=>{throw Object.assign(Error('Worker capacity is full'),{code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true});}});
  await f.client.connect();
  const binding={role:'core',conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker_1',agent:'codex',adapter_version:1}};
- const request={action:'submit',request_id:'capacity',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:'a'.repeat(64),task_id:null,task_revision:null,output_schema:{type:'object'}},input:[{type:'text',text:'Decide'}],lease_ms:120000};
+ const request={action:'submit',request_id:'capacity',submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:'a'.repeat(64),task_id:null,task_revision:null,output_schema:{type:'object'}},input:[{type:'text',text:'Decide'}],lease_ms:120000};
  f.send({type:'assistant_engine_request',request});
  expect(await waitFor(()=>f.received.find(m=>m.type==='assistant_engine_error'&&m.request_id==='capacity'))).toMatchObject({code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true});
  f.client.onAssistantEngineRequest=async()=>{throw Object.assign(Error('lost receipt'),{code:'CODEX_RPC_UNKNOWN',retryable:true});};

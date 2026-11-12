@@ -2,9 +2,11 @@ import {z} from 'zod';
 import {idSchema} from './wire-base.js';
 
 const target = {task_id: idSchema, expected_revision: z.number().int().positive()};
+const taskKind = z.enum(['analysis', 'design', 'implementation', 'migration', 'test', 'review', 'integration', 'release', 'documentation']);
+const acceptanceCriteria = z.array(z.object({statement: z.string().trim().min(1).max(1000), verification_kind: z.enum(['manual', 'browser', 'check', 'integration', 'health', 'artifact'])}).strict()).max(64);
 export const engineTaskOperationSchema = z.discriminatedUnion('action', [
   z.object({action: z.literal('create'), title: z.string().trim().min(1).max(120),
-    goal: z.string().trim().min(1).max(16000)}).strict(),
+    goal: z.string().trim().min(1).max(16000), task_kind: taskKind.optional(), acceptance_criteria: acceptanceCriteria.optional()}).strict(),
   z.object({action: z.literal('attach'), ...target}).strict(),
   z.object({action: z.literal('revise'), ...target,
     instruction: z.string().trim().min(1).max(16000)}).strict(),

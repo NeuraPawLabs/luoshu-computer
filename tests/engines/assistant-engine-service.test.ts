@@ -15,7 +15,7 @@ test('approval arriving before turn acknowledgement waits for the exact accepted
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}];
  try{
   await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  const send=service.handle({action:'submit',request_id:'s',lease_ms:120000,submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+  const send=service.handle({action:'submit',request_id:'s',lease_ms:120000,submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   await expect.poll(()=>Boolean(release)).toBe(true);expect(events.filter(e=>e.event.kind==='waiting_approval')).toEqual([]);
   release({id:'turn'});await send;
   await expect.poll(()=>events.some(e=>e.event.kind==='waiting_approval')).toBe(true);
@@ -35,7 +35,7 @@ test('prepared native thread is reused by submit, interrupt uses native identity
  const db=new Database(':memory:'),store=new CodexSessionStore(db),calls:any[]=[],rpc:any={initialize:async()=>({}),startThread:async(p:any)=>{calls.push(['thread/start',p]);return{id:'native-thread',sessionId:'tree'};},resumeThread:async(p:any)=>{calls.push(['thread/resume',p]);return{id:p.threadId,sessionId:'tree'};},startTurn:async(p:any)=>{calls.push(['turn/start',p]);return{id:'native-turn',status:'inProgress'};},interruptTurn:async(p:any)=>calls.push(['turn/interrupt',p])};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture/workspace'});
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}];
- const submission={submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
+ const submission={submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
  try{
   await service.handle({action:'session_prepare',request_id:'prepare',session_id:'session',binding,workspace_id:'workspace'});
   expect(await service.handle({action:'submit',lease_ms:120000,request_id:'submit',submission,input})).toMatchObject({turn_id:'native-turn'});
@@ -49,12 +49,12 @@ test('prepared native thread is reused by submit, interrupt uses native identity
 });
 test('submit without a prepared session is rejected before calling native methods',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db);let factories=0;const service=new CodexEngineService(store,'worker',()=>{factories++;throw Error('must not spawn');});
- try{const input=[{type:'text',text:'hello'}];await expect(service.handle({action:'submit',lease_ms:120000,request_id:'submit',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding:{conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input})).rejects.toThrow(/prepared|session/i);expect(factories).toBe(0);}finally{db.close();}
+ try{const input=[{type:'text',text:'hello'}];await expect(service.handle({action:'submit',lease_ms:120000,request_id:'submit',submission:{submission_id:'submission',run_id:'run',session_id:'session',binding:{conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input})).rejects.toThrow(/prepared|session/i);expect(factories).toBe(0);}finally{db.close();}
 });
 test('native events bind to exact acknowledged turn; final result survives service restart without raw output',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db),events:any[]=[];let starts=0;
  const rpc:any={initialize:async()=>({}),startThread:async()=>({id:'native',sessionId:'tree'}),resumeThread:async()=>({id:'native',sessionId:'tree'}),startTurn:async()=>{starts++;return{id:'turn',status:'inProgress'};},readThread:async()=>({thread:{id:'native',turns:[{id:'turn',status:'completed',items:[]}]}})};
- const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}],submission={submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
+ const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}],submission={submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture/workspace',generation:()=>3,emit:(event:any)=>events.push(event)});
  try{
   await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
@@ -79,7 +79,7 @@ test('a terminal notification arriving before turn acknowledgement is applied af
  service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture/workspace',generation:()=>1,emit:(event:any)=>events.push(event)});
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}];
  try{await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+  await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   expect(service.result('session','submission')).toMatchObject({status:'completed',replies:[{text:'fast result'}]});expect(events.at(-1).event.state).toBe('completed');
  }finally{db.close();}
 });
@@ -89,7 +89,7 @@ test('server approval flows back to the pending native request and completion in
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}];
  try{
   await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+  await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   const request=service.serverRequest({id:'approval',method:'item/commandExecution/requestApproval',params:{threadId:'native',turnId:'turn',itemId:'cmd',command:'check'}});
   const waiting=events.find(e=>e.event.kind==='waiting_approval');expect(waiting).toBeDefined();
   await service.handle({action:'interaction_response',request_id:'answer',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1,turn_id:'turn',interaction_id:waiting.event.request_id,response:{kind:'approval',decision:'allow_once'}});
@@ -103,7 +103,7 @@ test('explicit native interruption revokes pending approvals before its acknowle
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}];
  try{
   await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  await service.handle({action:'submit',request_id:'s',lease_ms:120000,submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+  await service.handle({action:'submit',request_id:'s',lease_ms:120000,submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   const approval=service.serverRequest({id:8,method:'item/commandExecution/requestApproval',params:{threadId:'native',turnId:'turn',itemId:'cmd',command:'check'}});void approval.catch(()=>{});
   const prompt=events.find(e=>e.event.kind==='waiting_approval').event;
   await service.handle({action:'interrupt',request_id:'stop',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1,turn_id:'turn'});
@@ -116,7 +116,7 @@ test('restarted service imports only the exact completed native turn when reconc
  const options={workspacePath:async()=>'/fixture/workspace'},service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),options),input=[{type:'text',text:'hello'}],binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}};
  try{
   await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+  await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   const recovered=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),options);
   await recovered.handle({action:'reconcile',request_id:'r',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1});
   expect(recovered.result('session','submission')).toMatchObject({status:'completed',replies:[{item_id:'answer',text:'Recovered answer'}]});
@@ -126,7 +126,7 @@ test('restarted service imports only the exact completed native turn when reconc
 test('disconnect invalidates approvals, interrupts native turn and never reports stopped before confirmation',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db),events:any[]=[],interrupts:any[]=[],rpc:any={initialize:async()=>({}),startThread:async()=>({id:'native'}),resumeThread:async()=>({id:'native'}),startTurn:async()=>({id:'turn'}),interruptTurn:async(p:any)=>interrupts.push(p)};
  let authorized=true;const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture/workspace',generation:()=>1,authorized:()=>authorized,emit:(e:any)=>events.push(e)}),input=[{type:'text',text:'hello'}],binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}};
- try{await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+ try{await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});await service.handle({action:'submit',lease_ms:120000,request_id:'s',submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   const approval=service.serverRequest({id:'pending',method:'item/commandExecution/requestApproval',params:{threadId:'native',turnId:'turn',itemId:'cmd',command:'check'}});const rejected=expect(approval).rejects.toThrow();
   authorized=false;await service.disconnect();await rejected;expect(interrupts).toEqual([{threadId:'native',turnId:'turn'}]);expect(store.active('session')).toBeDefined();
   await expect(service.handle({action:'session_prepare',request_id:'new',session_id:'new-session',binding,workspace_id:'workspace'})).rejects.toThrow(/authority|authorized/);
@@ -138,7 +138,7 @@ test('native submissions reserve capacity before awaiting thread policy revalida
  const rpc:any={initialize:async()=>({}),startThread:async()=>({id:'native'}),resumeThread:async()=>{resumes++;return new Promise(r=>release=r);},startTurn:async()=>({id:'turn'})};
  const options={workspacePath:async()=>'/fixture/workspace',capacity:()=>1,otherActiveCount:()=>0},service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),options),input=[{type:'text',text:'hello'}],binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}};
  try{await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  const submission={submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
+  const submission={submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
   rpc.assertPermissionProfileAvailable=async()=>{resumes++;await new Promise(r=>release=r);};
   const first=service.handle({action:'submit',lease_ms:120000,request_id:'s',submission,input});await expect.poll(()=>resumes).toBe(1);
   store.ensure({...binding,engine:{...binding.engine,kind:'device',agent:'codex',adapter_version:1}},'second','/fixture/workspace');store.beginThread('second');store.attachThread('second','second-native',null);
@@ -150,7 +150,7 @@ test('expired lease requests native interruption and cannot be revived by stale 
  vi.useFakeTimers();const db=new Database(':memory:'),store=new CodexSessionStore(db),stops:any[]=[],rpc:any={initialize:async()=>({}),startThread:async()=>({id:'thread'}),resumeThread:async()=>({id:'thread'}),startTurn:async()=>({id:'turn'}),interruptTurn:async(p:any)=>stops.push(p)};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture'}),input=[{type:'text',text:'once'}],binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}};
  try{await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  const submission={submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
+  const submission={submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
   await service.handle({action:'submit',request_id:'s',submission,input,lease_ms:100});
   const control={session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1};
   await expect(service.handle({action:'renew',request_id:'bad',...control,run_id:'foreign',lease_ms:100})).rejects.toThrow();
@@ -165,7 +165,7 @@ test('lease expiry during turn/start retains the late native identity and interr
  const rpc:any={initialize:async()=>({}),startThread:async()=>({id:'thread'}),resumeThread:async()=>({id:'thread'}),startTurn:()=>new Promise(r=>release=r),interruptTurn:async(p:any)=>stops.push(p)};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture'}),input=[{type:'text',text:'once'}],binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}};
  try{await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  const pending=service.handle({action:'submit',request_id:'s',submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input,lease_ms:100});
+  const pending=service.handle({action:'submit',request_id:'s',submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input,lease_ms:100});
   await vi.advanceTimersByTimeAsync(110);expect(release).toBeTypeOf('function');release({id:'late-turn'});await expect(pending).rejects.toThrow(/authority expired/i);
   expect(stops).toContainEqual({threadId:'thread',turnId:'late-turn'});expect(store.active('session')).toMatchObject({turn_id:'late-turn',status:'unknown'});
  }finally{await service.disconnect();db.close();vi.useRealTimers();}

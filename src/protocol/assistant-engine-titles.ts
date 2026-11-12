@@ -13,12 +13,14 @@ export const engineTitleResultSchema=z.discriminatedUnion('success',[
 export type EngineTitleResult=z.infer<typeof engineTitleResultSchema>;
 
 export function nativeTitleTools(){
- return[{type:'function' as const,name:'luoshu_conversation_title',
-  description:'Name this conversation after its substantive topic, never a greeting or "new chat". Metadata only: combine with already-needed work calls. Do not start a separate naming turn or Core model request.',
-  inputSchema:z.toJSONSchema(conversationTitleUpdateSchema)}];
+ const schema=z.toJSONSchema(conversationTitleUpdateSchema);
+ return[
+  {type:'function' as const,name:'luoshu_conversation_title',description:'Name this conversation after its substantive topic, never a greeting or "new chat". Metadata only: combine with already-needed work calls. Do not start a separate naming turn or Core model request.',inputSchema:schema},
+  {type:'function' as const,name:'luoshu_thread_title',description:'Name the current Thread after its substantive topic, never a greeting or generic Thread name. Metadata only: combine with already-needed work calls. Do not start a separate naming turn or Core model request.',inputSchema:schema},
+ ];
 }
 
 export function parseNativeTitleTool(name:string,argumentsValue:unknown):EngineTitleUpdate{
- if(name!=='luoshu_conversation_title')throw Error('Unsupported native title tool');
+ if(name!=='luoshu_conversation_title'&&name!=='luoshu_thread_title')throw Error('Unsupported native title tool');
  return conversationTitleUpdateSchema.parse(argumentsValue);
 }

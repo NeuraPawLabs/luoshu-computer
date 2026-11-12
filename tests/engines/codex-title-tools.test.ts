@@ -25,6 +25,18 @@ test('native title calls emit metadata once and replay the same pending and cach
  expect(emitted).toHaveLength(1);tools.close();
 });
 
+test.each(['luoshu_conversation_title','luoshu_thread_title'])('%s keeps its target when emitting and rejects reusing its call ID for another title target',async tool=>{
+ const emitted:unknown[]=[],tools=new CodexTitleTools('thread','turn',()=>true,(id,update,target)=>{emitted.push({id,update,target});});
+ try{
+  const pending=tools.handle(request({tool}));
+  expect(emitted).toEqual([{id:'call',update:{title:'公司研究',expected_version:1},target:tool}]);
+  const other=tool==='luoshu_thread_title'?'luoshu_conversation_title':'luoshu_thread_title';
+  expect(await tools.handle(request({tool:other}))).toMatchObject({success:false});
+  tools.respond('call',result);expect((await pending).success).toBe(true);
+  expect((await tools.handle(request({tool}))).success).toBe(true);expect(emitted).toHaveLength(1);
+ }finally{tools.close();}
+});
+
 test('native title calls reject foreign identities, namespaces, methods and caller authority',async()=>{
  const emitted:unknown[]=[],tools=await bridge(()=>true,(id,update)=>emitted.push({id,update}));
  for(const patch of [{threadId:'foreign'},{turnId:'foreign'},{callId:''},{callId:'x'.repeat(201)},{namespace:'caller'},{tool:'luoshu_task_create'},{owner_id:'alice'},{path:'/tmp'}])expect(await tools.handle(request(patch))).toMatchObject({success:false});

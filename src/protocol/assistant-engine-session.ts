@@ -30,7 +30,6 @@ export type EngineBinding = z.infer<typeof engineBindingSchema>;
 const ids = z.array(idSchema).refine(value => new Set(value).size === value.length, 'Duplicate message ID');
 export const engineSubmissionSchema = z.object({
   submission_id: idSchema,
-  batch_id: idSchema,
   run_id: idSchema,
   session_id: idSchema,
   binding: engineBindingSchema,

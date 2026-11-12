@@ -18,7 +18,7 @@ test('Worker stages Run output location before native turn and collects director
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'build'}],control={request_id:'collect',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1};
  try{
   await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
-  await service.handle({action:'submit',request_id:'s',lease_ms:120000,submission:{submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+  await service.handle({action:'submit',request_id:'s',lease_ms:120000,submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   expect(JSON.stringify(inputs[0])).toContain(join(root,'runs','run','outputs'));
   await expect(service.handle({action:'collect_result',...control})).rejects.toThrow(/terminal/i);
   await mkdir(join(root,'runs','run','outputs','lottery'));await writeFile(join(root,'runs','run','outputs','lottery','index.html'),'<h1>Draw</h1>');
@@ -43,7 +43,7 @@ test('terminal-turn interrupt stops only its background terminals and delivery w
  const rpc:any={initialize:async()=>({}),startThread:async()=>({id:'thread'}),resumeThread:async()=>({id:'thread'}),startTurn:async()=>({id:'turn-'+ ++starts}),interruptTurn:async()=>{throw Error('completed turns cannot be interrupted');},backgroundTerminals:async()=>({data:running?[{processId:'app-process',itemId:'command'}]:[],nextCursor:null}),terminateBackgroundTerminal:async(params:any)=>{stopped.push(params);if(confirmed)running=false;return{terminated:confirmed};}};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>root,files});
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'build'}];
- const submission=(id:string)=>({action:'submit',request_id:'s-'+id,lease_ms:120000,submission:{submission_id:id,batch_id:'batch-'+id,run_id:'run-'+id,session_id:'session',binding,input_message_ids:['message-'+id],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+ const submission=(id:string)=>({action:'submit',request_id:'s-'+id,lease_ms:120000,submission:{submission_id:id,run_id:'run-'+id,session_id:'session',binding,input_message_ids:['message-'+id],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
  const control={request_id:'stop',session_id:'session',submission_id:'first',run_id:'run-first',authorization_revision:1};
  try{
   await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
@@ -73,7 +73,7 @@ test('durable delivery intent blocks another turn through collection and cached 
  const rpc:any={initialize:async()=>({}),startThread:async()=>({id:'thread'}),resumeThread:async()=>({id:'thread'}),startTurn:async()=>({id:'turn-'+ ++starts}),interruptTurn:async()=>{},backgroundTerminals:async()=>{lists++;return{data:[],nextCursor:null};}};
  const options={workspacePath:async()=>root,files},service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),options);
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'build'}];
- const submission=(id:string)=>({action:'submit',request_id:'s-'+id,lease_ms:120000,submission:{submission_id:id,batch_id:'batch-'+id,run_id:'run-'+id,session_id:'session',binding,input_message_ids:['message-'+id],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+ const submission=(id:string)=>({action:'submit',request_id:'s-'+id,lease_ms:120000,submission:{submission_id:id,run_id:'run-'+id,session_id:'session',binding,input_message_ids:['message-'+id],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
  const control={request_id:'collect',session_id:'session',submission_id:'first',run_id:'run-first',authorization_revision:1};
  let resume!:()=>void;
  try{

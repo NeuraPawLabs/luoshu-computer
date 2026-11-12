@@ -7,6 +7,14 @@ test('create represents explicit business intent, not a Worker call', () => {
   });
 });
 
+test('create can classify Agent work and declare its acceptance evidence', () => {
+  expect(engineTaskOperationSchema.parse({
+    action: 'create', title: '审查权限', goal: '检查越权边界', task_kind: 'review',
+    acceptance_criteria: [{statement: '越权测试通过', verification_kind: 'check'}],
+  })).toMatchObject({task_kind: 'review', acceptance_criteria: [{verification_kind: 'check'}]});
+  expect(engineTaskOperationSchema.safeParse({action: 'create', title: 'x', goal: 'y', task_kind: 'unknown'}).success).toBe(false);
+});
+
 test('existing task mutations always include an expected revision', () => {
   expect(engineTaskOperationSchema.safeParse({action: 'attach', task_id: 'task_1', expected_revision: 3}).success).toBe(true);
   expect(engineTaskOperationSchema.safeParse({action: 'attach', task_id: 'task_1'}).success).toBe(false);

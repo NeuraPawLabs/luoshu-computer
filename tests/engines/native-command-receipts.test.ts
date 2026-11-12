@@ -9,7 +9,7 @@ async function fixture(){
  const rpc:any={initialize:async()=>({}),startThread:async()=>({id:'thread'}),resumeThread:async()=>({id:'thread'}),startTurn:async()=>({id:'turn-'+ ++turns}),interruptTurn:async()=>{},readThread:async()=>({thread:{id:'thread',turns:[{id:'turn-1',status:'completed',items:[{id:'recovered',type:'commandExecution',command:'npm test',cwd:'/fixture',status:'completed',exitCode:0,durationMs:23,aggregatedOutput:'RAW_RECOVERED'}]}]}})};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture'});
  const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'do work'}];
- const submission={submission_id:'s',batch_id:'b',run_id:'r',session_id:'session',binding,input_message_ids:['m'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
+ const submission={submission_id:'s',run_id:'r',session_id:'session',binding,input_message_ids:['m'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null};
  await service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding,workspace_id:'workspace'});
  await service.handle({action:'submit',request_id:'send',submission,input,lease_ms:120000});
  return{db,store,service,rpc,close:async()=>{await service.close();db.close();}};

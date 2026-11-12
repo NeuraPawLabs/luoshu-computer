@@ -11,7 +11,7 @@ import {coreToolConfig} from '../../src/engines/core-tool-config.js';
 const binding={role:'core' as const,conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,worker_id:'worker',agent:'codex' as const,adapter_version:1 as const}};
 const input=[{type:'text' as const,text:'Decide using the advertised runtime capabilities.'}];
 const outputSchema={type:'object',properties:{text:{type:'string'},calls:{type:'array',maxItems:0,items:{type:'object'}}},required:['text','calls'],additionalProperties:false};
-const submission={submission_id:'submission',batch_id:'batch',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null,output_schema:outputSchema};
+const submission={submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null,output_schema:outputSchema};
 function fixture(options:{capacity?:()=>number;otherActiveCount?:()=>number}={}){
  const db=new Database(':memory:'),store=new CodexSessionStore(db),events:any[]=[];
  const thread=async(p:any)=>({id:p.threadId??'native',activePermissionProfile:{id:p.permissionScope.id,extends:null},runtimeWorkspaceRoots:p.permissionScope.runtimeWorkspaceRoots,policy:{cwd:p.cwd,model:'fixture',modelProvider:'fixture',reasoningEffort:null,approvalPolicy:nativeApprovalPolicy,approvalsReviewer:'user',sandbox:{type:'readOnly',networkAccess:false}}});

@@ -8,7 +8,7 @@ export function engineBindingFixture() {
 
 export function engineSubmissionFixture() {
   return {
-    submission_id: 'submission_1', batch_id: 'batch_1', run_id: 'run_1',
+    submission_id: 'submission_1', run_id: 'run_1',
     session_id: 'session_1', binding: engineBindingFixture(),
     input_message_ids: ['message_1'], context_message_ids: [],
     input_sha256: 'a'.repeat(64), task_id: null, task_revision: null,
