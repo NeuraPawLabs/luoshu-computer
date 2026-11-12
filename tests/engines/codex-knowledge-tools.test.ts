@@ -41,10 +41,10 @@ test('native knowledge rejects foreign identities, namespace, method, arguments 
  await expect(tools.respond('missing',result)).rejects.toThrow(/not found/i);await tools.respond('call',result);expect((await pending).success).toBe(true);tools.close();
 });
 
-test('native knowledge enforces Codebase analysis sources and Project business semantics',async()=>{
+test('native knowledge enforces Codebase analysis sources and WorkContext business semantics',async()=>{
  const emitted:unknown[]=[],tools=await bridge({emit:(...value)=>{emitted.push(value);}});
  for(const args of [{...proposal,sources:[]},{...proposal,kind:'reference',body:'must be empty'},{...proposal,sources:[{codebase_id:'22222222-2222-4222-8222-222222222222',path:'src/main.ts'}]},{...proposal,kind:'business',sources:[]}])expect(await tools.handle(request({},args))).toMatchObject({success:false});
- expect(emitted).toEqual([]);const business={...proposal,scope:{kind:'project',id:codebase},kind:'business',sources:[]},pending=tools.handle(request({},business));await flush();
+ expect(emitted).toEqual([]);const business={...proposal,scope:{kind:'work_context',id:codebase},kind:'business',sources:[]},pending=tools.handle(request({},business));await flush();
  await tools.respond('call',result);expect((await pending).success).toBe(true);tools.close();
 });
 

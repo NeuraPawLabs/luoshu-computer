@@ -17,7 +17,7 @@ const control={request_id:'knowledge-receipt',session_id:'session',submission_id
 const page={success:true,value:{snapshot_id:'snapshot',run_id:'run',scopes:[],entries:[],next_offset:null}};
 const candidate={success:true,value:{id:'candidate',revision:1,status:'candidate'}};
 const sha=(value:string)=>createHash('sha256').update(value).digest('hex');
-const business={scope:{kind:'project',id:codebase},entry_id:null,expected_revision:0,title:'Business',summary:'Context',kind:'business',body:'Private context',sources:[]};
+const business={scope:{kind:'work_context',id:codebase},entry_id:null,expected_revision:0,title:'Business',summary:'Context',kind:'business',body:'Private context',sources:[]};
 const flush=()=>new Promise<void>(resolve=>setImmediate(resolve));
 async function fixture(options:{transport?:(event:EngineWireEvent)=>void|Promise<void>;resources?:boolean;capacity?:number}={}){
  const root=await mkdtemp(join(tmpdir(),'native-knowledge-service-')),cwd=join(root,'workspace'),resources=join(root,'resources'),checkout=join(resources,'checkout');await mkdir(join(checkout,'.git'),{recursive:true});await mkdir(cwd);await writeFile(join(checkout,'index.txt'),'Current file');await writeFile(join(checkout,'.git','HEAD'),'a'.repeat(40)+'\n');
@@ -100,7 +100,7 @@ test('Worker enriches scoped source references and verifies factual reads before
   const matched=readCall('matched');await flush();await f.service.handle({action:'knowledge_response',...control,call_id:'matched',result:{success:true,value:read}});expect(JSON.parse((await matched).contentItems[0].text)).toEqual(read);
   await writeFile(join(f.checkout,'index.txt'),'Later change');const stale=readCall('stale');await flush();await f.service.handle({action:'knowledge_response',...control,call_id:'stale',result:{success:true,value:read}});expect((await stale).success).toBe(false);expect((await stale).contentItems[0].text).not.toContain(read.body);
   const wrong=readCall('wrong');await flush();await f.service.handle({action:'knowledge_response',...control,call_id:'wrong',result:{success:true,value:{...read,entry:{...read.entry,sources:[{...read.entry.sources[0],codebase_id:foreign}]}}}});expect((await wrong).success).toBe(false);
-  const proposedWrong=await f.call({callId:'foreign-proposal',tool:'luoshu_knowledge_propose'},{...proposal,scope:{kind:'project',id:codebase},sources:[{codebase_id:foreign,path:'index.txt'}]});expect(proposedWrong.success).toBe(false);
+  const proposedWrong=await f.call({callId:'foreign-proposal',tool:'luoshu_knowledge_propose'},{...proposal,scope:{kind:'work_context',id:codebase},sources:[{codebase_id:foreign,path:'index.txt'}]});expect(proposedWrong.success).toBe(false);
   const note=f.call({callId:'business',tool:'luoshu_knowledge_propose'},business);await flush();await f.service.handle({action:'knowledge_response',...control,call_id:'business',result:candidate});expect((await note).success).toBe(true);
   expect(f.events.every(event=>event.event.kind==='knowledge.request')).toBe(true);expect(f.turns).toHaveLength(1);
  }finally{await f.cleanup();}

@@ -21,7 +21,7 @@ async function resolver(prepared:()=>Promise<PreparedNativeCodebases>,current:()
  expect(implementation,'Worker source evidence resolver exists').not.toBeNull();
  return new implementation!.NativeKnowledgeSources({codebaseIds:ids,prepared,current});
 }
-const readResult=(sources:KnowledgeSource[],kind:'analysis'|'reference'|'business'='analysis',body='Current code facts'):KnowledgeReadResult=>({entry:{id:'entry',revision:1,scope:{kind:kind==='business'?'project':'codebase',id:codebase},title:'Entry',summary:'Summary',kind,sources},body});
+const readResult=(sources:KnowledgeSource[],kind:'analysis'|'reference'|'business'='analysis',body='Current code facts'):KnowledgeReadResult=>({entry:{id:'entry',revision:1,scope:{kind:kind==='business'?'work_context':'codebase',id:codebase},title:'Entry',summary:'Summary',kind,sources},body});
 
 test('source enrichment derives actual checkout HEAD and content without changing a read-only repository',async()=>{
  const f=await fixture();try{
