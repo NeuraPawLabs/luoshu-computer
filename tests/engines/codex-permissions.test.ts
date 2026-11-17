@@ -15,7 +15,7 @@ import {pathToFileURL} from 'node:url';
 
 test('permission updates persist before acknowledgement and remain independent of live directory edits',async()=>{
  const root=await mkdtemp(join(tmpdir(),'codex-permissions-'));
- const config={device_id:'worker',url:'https://example.test',name:'device',capacity:1};
+ const config={worker_id:'worker',url:'https://example.test',name:'device',capacity:1};
  try{
   await saveWorkerConfig(root,config);
   const permissions=new CodexPermissions(root),roots=runtimeDevelopmentRoots(root,config);
@@ -31,7 +31,7 @@ test('permission updates persist before acknowledgement and remain independent o
 
 test('pairing stores explicit full access and validates permissions before consuming a pairing code',async()=>{
  const root=await mkdtemp(join(tmpdir(),'codex-permissions-pair-'));let requests=0;
- const options={stateDir:root,url:'https://example.test',code:'one-use',name:'dedicated codex',capacity:1,codexPath:'/missing/codex',opencodePath:'/missing/opencode',fetchImpl:async()=>{requests++;return new Response(JSON.stringify({device_id:'worker',status:'pending'}));}};
+ const options={stateDir:root,url:'https://example.test',code:'one-use',name:'dedicated codex',capacity:1,codexPath:'/missing/codex',opencodePath:'/missing/opencode',fetchImpl:async()=>{requests++;return new Response(JSON.stringify({worker_id:'worker',status:'pending'}));}};
  try{
   await expect(pairWorker({...options,codexSandbox:'invalid' as any})).rejects.toThrow();expect(requests).toBe(0);
   await pairWorker({...options,codexSandbox:'danger-full-access'});
@@ -41,7 +41,7 @@ test('pairing stores explicit full access and validates permissions before consu
 
 test('an independent CLI config edit cannot restore full access after a concurrent permission downgrade',async()=>{
  const root=await mkdtemp(join(tmpdir(),'codex-permissions-process-')),ready=join(root,'ready'),release=join(root,'release');
- await saveWorkerConfig(root,{device_id:'worker',url:'https://example.test',name:'device',capacity:1,codex_sandbox:'danger-full-access'});
+ await saveWorkerConfig(root,{worker_id:'worker',url:'https://example.test',name:'device',capacity:1,codex_sandbox:'danger-full-access'});
  const module=pathToFileURL(join(process.cwd(),'src/runtime/environment.ts')).href;
  const child=spawn(process.execPath,['--import','tsx','--input-type=module','-e',`
 import {updateWorkerConfig} from ${JSON.stringify(module)};
@@ -67,15 +67,15 @@ await updateWorkerConfig(${JSON.stringify(root)},current=>{
 
 test('new and resumed PTYs read changed permissions without restarting or changing running PTYs',async()=>{
  const root=await mkdtemp(join(tmpdir(),'codex-permissions-pty-')),agent=join(root,'codex'),calls=join(root,'calls');
- await saveWorkerConfig(root,{device_id:'worker',url:'https://example.test',name:'device',capacity:3});
+ await saveWorkerConfig(root,{worker_id:'worker',url:'https://example.test',name:'device',capacity:3});
  await writeFile(agent,`#!/usr/bin/env node\nrequire('fs').appendFileSync(${JSON.stringify(calls)},JSON.stringify(process.argv.slice(2))+'\\n');process.stdin.resume();`,{mode:0o700});
  const permissions=new CodexPermissions(root),service=new DevelopmentService({roots:[root],agentPaths:{codex:agent},codexPermissions:permissions});
  const open={action:'open' as const,agent:'codex' as const,cwd:root,cols:80,rows:24};
  try{
-  await service.handle({...open,engine_session_id:'first',mode:'new'});
+  await service.handle({...open,session_id:'first',mode:'new'});
   await expect.poll(async()=>{try{return (await readFile(calls,'utf8')).trim().split('\n').length;}catch{return 0;}}).toBe(1);
   await service.handle({action:'codex_settings_update',mode:'danger-full-access',expected_revision:(await permissions.state()).revision});
-  await service.handle({...open,engine_session_id:'second',mode:'resume',agent_engine_session_id:'native-session'});
+  await service.handle({...open,session_id:'second',mode:'resume',agent_session_id:'native-session'});
   await expect.poll(async()=>(await readFile(calls,'utf8')).trim().split('\n').length).toBe(2);
   const args=(await readFile(calls,'utf8')).trim().split('\n').map(line=>JSON.parse(line));
   expect(args[0]).toEqual(expect.arrayContaining(['--sandbox','workspace-write']));
@@ -86,7 +86,7 @@ test('new and resumed PTYs read changed permissions without restarting or changi
 
 test('tasks use current Worker permissions and reject read Codebases before starting unrestricted work',async()=>{
  const root=await mkdtemp(join(tmpdir(),'codex-permissions-task-'));
- await saveWorkerConfig(root,{device_id:'worker',url:'https://example.test',name:'device',capacity:1,codex_sandbox:'danger-full-access'});
+ await saveWorkerConfig(root,{worker_id:'worker',url:'https://example.test',name:'device',capacity:1,codex_sandbox:'danger-full-access'});
  const state=new WorkerState(join(root,'worker.db')),permissions=new CodexPermissions(root);let calls=0,mode='';
  const executor=new Executor({state,stateDir:root,developmentRoots:[root],codexPermissions:permissions,emit:e=>state.appendEvent(e),agents:{codex:async input=>{calls++;mode=input.sandboxMode??'';return{exitCode:0,summary:'done',checks:[],events:[],argv:[]};}}});
  const assignment:Assignment={attempt_id:'full',lease_epoch:1,agent:'codex',instruction:'inspect',input_files:[],codebases:[],timeout_seconds:30};

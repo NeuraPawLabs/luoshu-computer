@@ -74,7 +74,7 @@ test('native session prepares with user configuration without exporting it or st
  const config={mcp_servers:{fixture:{bearer_token:'FIXTURE_NATIVE_SECRET'}},plugins:{fixture:{enabled:true}},approval_policy:'on-request',sandbox_mode:'workspace-write'},f=await fixture(config,{directories:true,customSkill:true});
  const sessions=new CodexSessionService(new CodexSessionStore(f.db),id=>f.pool.client(id),{workspacePath:async()=>f.cwd});
  try{
-  await expect(sessions.prepare({session_key:'session',execution_workspace_id:'workspace',binding:{session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}}})).resolves.toEqual({native_thread_id:'native-thread',session_tree_id:null});
+  await expect(sessions.prepare({session_key:'session',workspace_id:'workspace',binding:{conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}}})).resolves.toEqual({thread_id:'native-thread',session_tree_id:null});
   const thread=f.sent.find(r=>r.method==='thread/start');expect(thread.params.permissions).toMatch(/^luoshu_/);
   expect(thread.params.config['permissions.'+thread.params.permissions]).toBeDefined();
   expect(f.sent.some(r=>['skills/list','turn/start'].includes(r.method))).toBe(false);

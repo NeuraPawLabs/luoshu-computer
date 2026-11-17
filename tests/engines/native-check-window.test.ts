@@ -5,7 +5,7 @@ function fixture(){
  const saved:NativeCheckReceipt[]=[],commands:NativeCommandReceipt[]=[];let hash='a'.repeat(64),authorized=true,busy=false;
  const window=new NativeCheckWindow({thread:'thread',turn:'turn',assertCurrent:()=>{if(!authorized)throw Error('revoked');},snapshot:async()=>[{kind:'outputs',sha256:hash}] as NativeCheckTarget[],quiescent:async()=>{if(busy)throw Error('background process');},commands:()=>commands,save:r=>saved.push(r)});
  const event=(method:string,id='cmd',type='commandExecution',exit=0)=>{
-  if(method==='item/completed'&&type==='commandExecution')commands.push({native_thread_id:'thread',turn_id:'turn',item_id:id,command:'test',cwd:'/workspace',status:'completed',exit_code:exit,duration_ms:1});
+  if(method==='item/completed'&&type==='commandExecution')commands.push({thread_id:'thread',turn_id:'turn',item_id:id,command:'test',cwd:'/workspace',status:'completed',exit_code:exit,duration_ms:1});
   window.observe(method,{threadId:'thread',turnId:'turn',item:{id,type}});
  };
  return{window,saved,commands,event,change:()=>hash='b'.repeat(64),revoke:()=>authorized=false,busy:()=>busy=true};
@@ -36,7 +36,7 @@ test('revocation, open tools, background work and closed windows cannot produce 
 test('native event during an asynchronous fingerprint cannot pass a check',async()=>{
  const commands:NativeCommandReceipt[]=[],saved:NativeCheckReceipt[]=[];let release!:()=>void,block=false;
  const w=new NativeCheckWindow({thread:'t',turn:'u',assertCurrent:()=>{},quiescent:async()=>{},commands:()=>commands,save:r=>saved.push(r),snapshot:async()=>{if(block)await new Promise<void>(r=>release=r);return[{kind:'outputs',sha256:'a'.repeat(64)}];}});
- const start=await w.begin('b','test');w.observe('item/started',{threadId:'t',turnId:'u',item:{id:'cmd',type:'commandExecution'}});commands.push({native_thread_id:'t',turn_id:'u',item_id:'cmd',command:'test',cwd:'/x',status:'completed',exit_code:0,duration_ms:1});w.observe('item/completed',{threadId:'t',turnId:'u',item:{id:'cmd',type:'commandExecution'}});
+ const start=await w.begin('b','test');w.observe('item/started',{threadId:'t',turnId:'u',item:{id:'cmd',type:'commandExecution'}});commands.push({thread_id:'t',turn_id:'u',item_id:'cmd',command:'test',cwd:'/x',status:'completed',exit_code:0,duration_ms:1});w.observe('item/completed',{threadId:'t',turnId:'u',item:{id:'cmd',type:'commandExecution'}});
  block=true;const end=w.end('e',start.check_id);await new Promise(r=>setImmediate(r));w.observe('item/started',{threadId:'t',turnId:'u',item:{id:'late',type:'fileChange'}});release();expect((await end).status).toBe('invalidated');
 });
 test('foreign native events cannot contribute check commands and call replay cannot change purpose',async()=>{

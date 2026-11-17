@@ -14,9 +14,9 @@ test.each([false,true])('native service check tools bind real commands to output
  const rpc:any={initialize:async()=>({}),startThread:async(p:any)=>{expect(p.dynamicTools.map((t:any)=>t.name)).toContain('luoshu_check_begin');return{id:'thread'};},startTurn:async()=>({id:'turn'}),interruptTurn:async()=>{},backgroundTerminals:async()=>({data:[],nextCursor:null})};
  service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{files,workspacePath:async()=>root});
  try{
-  const binding={session_id:'c',agent_id:'a',actor_id:'owner',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'test'}];
-  await service.handle({action:'session_prepare',request_id:'p',engine_session_id:'s',execution_workspace_id:'s',binding});
-  await service.handle({action:'submit',request_id:'send',lease_ms:120000,submission:{submission_id:'sub',run_id:'run',engine_session_id:'s',binding,input_message_ids:['m'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+  const binding={conversation_id:'c',agent_id:'a',actor_id:'owner',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'test'}];
+  await service.handle({action:'session_prepare',request_id:'p',session_id:'s',workspace_id:'s',binding});
+  await service.handle({action:'submit',request_id:'send',lease_ms:120000,submission:{submission_id:'sub',run_id:'run',session_id:'s',binding,input_message_ids:['m'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
   await writeFile(join(root,'runs/run/outputs/result.txt'),'checked content');
   const call=(id:string,tool:string,args:unknown)=>service.serverRequest({id,method:'item/tool/call',params:{threadId:'thread',turnId:'turn',callId:id,tool,arguments:args}}) as Promise<any>;
   const begun=await call('begin','luoshu_check_begin',{purpose:'Read the produced file'});expect(begun.success).toBe(true);const check=JSON.parse(begun.contentItems[0].text);
@@ -26,7 +26,7 @@ test.each([false,true])('native service check tools bind real commands to output
   expect(new CodexSessionStore(db).checkReceipts('s','sub')).toMatchObject([{check_id:check.check_id,status:'passed'}]);
   if(changed)await writeFile(join(root,'runs/run/outputs/result.txt'),'later edit');
   service.notification('turn/completed',{threadId:'thread',turn:{id:'turn',status:'completed',items:[]}});
-  const packet=await service.handle({action:'collect_result',request_id:'collect',engine_session_id:'s',submission_id:'sub',run_id:'run',authorization_revision:1});
+  const packet=await service.handle({action:'collect_result',request_id:'collect',session_id:'s',submission_id:'sub',run_id:'run',authorization_revision:1});
   expect(packet).toMatchObject({delivery:{checks:[{status:'passed',binding:changed?'changed':'current'}],commands:[{item_id:'cmd'}],content:[{kind:'outputs'}]}});
   await writeFile(join(root,'runs/run/outputs/result.txt'),'post delivery');
   const cached=await new NativeRunFiles(db,()=>true).collect('s','run','sub');expect(packet).toMatchObject({delivery:cached});

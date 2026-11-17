@@ -12,7 +12,7 @@ async function fixture(){
  const root=await mkdtemp(join(tmpdir(),'luoshu-native-subtree-')),source=join(root,'source'),state=join(root,'state');await mkdir(join(source,'app'),{recursive:true});await mkdir(state);
  const git=async(args:string[],cwd=source)=>(await exec('git',args,{cwd})).stdout.trim();
  await git(['init','-b','main']);await writeFile(join(source,'app','index.txt'),'base');await writeFile(join(source,'app','remove.txt'),'remove');await writeFile(join(source,'private.txt'),'sibling secret');await git(['add','.']);await git(['-c','user.name=Fixture','-c','user.email=f@invalid','commit','-m','initial']);const base=await git(['rev-parse','HEAD']);
- const dbPath=join(root,'state.db'),db=new Database(dbPath),options={stateDir:state,allowedRoots:()=>[source]},service=new NativeCodebases(db,options),input={engine_session_id:'session',run_id:'run',submission_id:'submission',codebases:[{id:'11111111-1111-4111-8111-111111111111',alias:'app',access_mode:'write' as const,source:{kind:'local' as const,path:source},root_path:'app',default_branch:'main'}]};
+ const dbPath=join(root,'state.db'),db=new Database(dbPath),options={stateDir:state,allowedRoots:()=>[source]},service=new NativeCodebases(db,options),input={session_id:'session',run_id:'run',submission_id:'submission',codebases:[{id:'11111111-1111-4111-8111-111111111111',alias:'app',access_mode:'write' as const,source:{kind:'local' as const,path:source},root_path:'app',default_branch:'main'}]};
  const prepared=await service.prepare(input),repo=prepared.workspace.codebases[0].repository_path,checkout=prepared.write[0];
  return{root,source,state,dbPath,db,options,service,input,base,repo,checkout,git,close:async()=>{db.close();await rm(root,{recursive:true,force:true});}};
 }

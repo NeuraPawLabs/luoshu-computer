@@ -14,7 +14,7 @@ test('registry writes launch intent before commit, fences live owners and stores
  const db=new Database(':memory:');try{
   const registry=new NativeUnitRegistry(db),lease=await registry.acquire('worker');
   const row=db.prepare('SELECT * FROM native_systemd_units').get() as any;
-  expect(row).toMatchObject({device_id:'worker',unit_name:lease.unitName,owner_token:lease.ownerToken,phase:'reserved',runtime_json:null});
+  expect(row).toMatchObject({worker_id:'worker',unit_name:lease.unitName,owner_token:lease.ownerToken,phase:'reserved',runtime_json:null});
   await expect(new NativeUnitRegistry(db).acquire('worker')).rejects.toThrow(/owner.*active/);
   lease.committed();expect(db.prepare('SELECT phase FROM native_systemd_units').get()).toEqual({phase:'committed'});
   const runtime={invocation:'a'.repeat(32),cgroup:'/user.slice/'+lease.unitName+'.service'};

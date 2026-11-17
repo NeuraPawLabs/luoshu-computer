@@ -10,10 +10,10 @@ async function fixture(steer?: (params:any)=>Promise<{turnId:string}>){
  const db=new Database(':memory:'),store=new CodexSessionStore(db),events:any[]=[],calls:any[]=[];
  const rpc:any={initialize:async()=>({}),startThread:async()=>({id:'thread'}),resumeThread:async()=>({id:'thread'}),startTurn:async()=>{calls.push('turn/start');return{id:'turn'};},interruptTurn:async()=>{},steerTurn:async(params:any)=>{calls.push(['turn/steer',params]);return steer?steer(params):{turnId:params.expectedTurnId};}};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc) as any,{workspacePath:async()=>'/fixture',emit:event=>events.push(event)});
- const binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}];
- await service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:'session',binding,execution_workspace_id:'workspace'});
- await service.handle({action:'submit',request_id:'submit',lease_ms:120000,submission:{submission_id:'submission',engine_session_id:'session',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
- const control={request_id:'inspect',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1};
+ const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'hello'}];
+ await service.handle({action:'session_prepare',request_id:'prepare',session_id:'session',binding,workspace_id:'workspace'});
+ await service.handle({action:'submit',request_id:'submit',lease_ms:120000,submission:{submission_id:'submission',session_id:'session',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+ const control={request_id:'inspect',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1};
  return{db,store,service,rpc,events,calls,control,close:async()=>{await service.disconnect();db.close();}};
 }
 const item={id:'question-item',type:'agentMessage',phase:'commentary',text:'选择目录。',questions:[{title:'目录',options:['src','tests']}]};

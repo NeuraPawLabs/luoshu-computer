@@ -18,7 +18,7 @@ async function fixture(){
  await writeFile(join(source,'index.txt'),'base');await git(['add','.']);await git(['commit','-m','initial']);const base=await git(['rev-parse','HEAD']);
  const db=new Database(':memory:'),service=new NativeCodebases(db,{stateDir:state,allowedRoots:()=>[source]});
  const spec={id:'11111111-1111-4111-8111-111111111111',alias:'app',access_mode:'write' as const,source:{kind:'local' as const,path:source},root_path:'.',default_branch:'main'};
- const input={engine_session_id:'session',run_id:'run',submission_id:'submission',codebases:[spec]};
+ const input={session_id:'session',run_id:'run',submission_id:'submission',codebases:[spec]};
  return{root,source,state,git,base,db,service,spec,input,close:async()=>{db.close();await workspaceHelpers.removeCodebaseWorkspace(join(state,'runs','run','references','app'));await rm(root,{recursive:true,force:true});}};
 }
 test('native Codebase journal pins real source commit and coalesces repeat preparation across service restart',async()=>{
@@ -39,7 +39,7 @@ test('native Codebase cancellation stops an in-flight real Git SSH operation wit
   const service=new NativeCodebases(f.db,{stateDir:f.state,allowedRoots:()=>[],gitSshCommand:helper}),input={...f.input,codebases:[{...f.spec,source:{kind:'git' as const,repository_url:'ssh://fixture.invalid/project.git'}}]};
   work=service.prepare(input);void work.catch(()=>{});
   await expect.poll(()=>readFile(pidFile,'utf8').catch(()=>null),{timeout:5000}).not.toBeNull();
-  await expect(service.cancel({...input,engine_session_id:'foreign'})).rejects.toThrow(/identity/i);
+  await expect(service.cancel({...input,session_id:'foreign'})).rejects.toThrow(/identity/i);
   await service.cancel(input);await expect(work).rejects.toThrow(/cancel|abort/i);
   expect(f.db.prepare('SELECT state,assignments_json FROM assistant_native_codebases').get()).toEqual({state:'resolving',assignments_json:null});
   const pid=Number(await readFile(pidFile,'utf8'));
@@ -188,7 +188,7 @@ test('codebase purge removes scoped commit contents only for its session inside 
   const input={...f.input,codebases:[{...f.spec,root_path:'app'}]};
   const own=await f.service.prepare(input);await writeFile(join(own.write[0],'main.txt'),'private change');
   await f.service.collect(input,true);
-  const foreignInput={...input,engine_session_id:'foreign',run_id:'foreign-run',submission_id:'foreign-sub'};
+  const foreignInput={...input,session_id:'foreign',run_id:'foreign-run',submission_id:'foreign-sub'};
   const foreign=await f.service.prepare(foreignInput);await writeFile(join(foreign.write[0],'main.txt'),'foreign change');await f.service.collect(foreignInput,true);
   expect(f.db.prepare('SELECT COUNT(*) AS n FROM native_codebase_commits').get()).toEqual({n:2});
   const retained={workspace:f.db.prepare("SELECT * FROM assistant_native_codebases WHERE session_id='foreign'").get(),commit:f.db.prepare("SELECT * FROM native_codebase_commits WHERE run_id='foreign-run'").get()};
