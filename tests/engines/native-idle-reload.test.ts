@@ -23,12 +23,12 @@ async function fixture(){
    startThread:async()=>{calls.push('start');return{id:'thread-'+ ++threads};},resumeThread:async(p:any)=>{calls.push('resume:'+p.threadId);return{id:p.threadId};},startTurn:async()=>{calls.push('turn');return{id:'turn-'+ ++turns};},interruptTurn:async()=>{},unsubscribeThread:async(p:any)=>{calls.push('unsubscribe:'+p.threadId);return{status:'unsubscribed'};},backgroundTerminals:async()=>({data:[],nextCursor:null})});
   const proxy=withNativePolicy(client);proxies.set(client,proxy);return proxy;
  };
- const files=new NativeRunFiles(db,i=>Boolean(store.result(i.session_id,i.submission_id)));
+ const files=new NativeRunFiles(db,i=>Boolean(store.result(i.engine_session_id,i.submission_id)));
  service=new CodexEngineService(store,'worker',rpc,{files,generation:()=>generation,workspacePath:id=>pool.workspacePath(id),unloadIdle:()=>pool.unloadIfIdle('worker',()=>store.activeCount()+files.activeCount()),quiesce:()=>pool.quiesce('worker'),cleanupOwned:async()=>{}});
  const binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'go'}];
  const prepare=(session='s')=>service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:session,execution_workspace_id:session,binding});
  const submit=(id:string)=>service.handle({action:'submit',request_id:'send-'+id,lease_ms:120000,submission:{engine_session_id:'s',submission_id:id,run_id:id,binding,input_message_ids:[id],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
- const terminal=(id:string)=>{const row=store.submission(id)!;service.notification('turn/completed',{threadId:row.thread_id,turn:{id:row.turn_id,status:'completed',items:[]}});};
+ const terminal=(id:string)=>{const row=store.submission(id)!;service.notification('turn/completed',{threadId:row.native_thread_id,turn:{id:row.turn_id,status:'completed',items:[]}});};
  const collect=(id:string)=>service.handle({action:'collect_result',request_id:'collect-'+id,engine_session_id:'s',run_id:id,submission_id:id,authorization_revision:1});
  return{root,db,store,service,pool,files,calls,rpc,prepare,submit,terminal,collect,binding,changeGeneration:()=>{generation++;},clients:()=>clients,async close(){await service.close();await pool.close();db.close();await rm(root,{recursive:true,force:true});}};
 }
@@ -36,7 +36,7 @@ test('delivery succeeds, idle release clears both caches and the next input resu
  const f=await fixture();try{
   await f.prepare();await f.submit('one');f.terminal('one');await expect(f.collect('one')).resolves.toMatchObject({action:'collect_result'});
   expect(await f.service.releaseIdle()).toBe(true);
-  await f.submit('two');expect(f.store.submission('two')?.thread_id).toBe('thread-1');
+  await f.submit('two');expect(f.store.submission('two')?.native_thread_id).toBe('thread-1');
   expect(f.clients()).toBe(2);expect(f.calls).toEqual(['start','turn','resume:thread-1','turn']);
  }finally{await f.close();}
 });
@@ -108,7 +108,7 @@ test('runtime drift rejects new input without delivery locks and idle reload res
   await expect(f.submit('two')).rejects.toMatchObject({code:'CODEX_RUNTIME_CHANGED'});
   expect(f.store.session('s')).toEqual(before);expect(f.store.submission('two')).toBeUndefined();expect(f.files.pending()).toEqual([]);
   expect(client.isClosed).toBe(false);expect(await f.service.releaseIdle()).toBe(true);
-  await f.submit('two');expect(f.store.submission('two')?.thread_id).toBe(before?.thread_id);
+  await f.submit('two');expect(f.store.submission('two')?.native_thread_id).toBe(before?.thread_id);
   expect(f.calls).toEqual(['start','turn','resume:thread-1','turn']);
  }finally{await f.close();}
 });
@@ -116,7 +116,7 @@ test('deleting a different session releases shared clients but preserves resumab
  const f=await fixture();try{
   await f.prepare();await f.submit('one');f.terminal('one');await f.collect('one');await f.prepare('deleted');
   await f.service.handle({action:'session_close',request_id:'close',engine_session_id:'deleted',binding:f.binding});
-  await f.submit('two');expect(f.store.submission('two')?.thread_id).toBe('thread-1');
+  await f.submit('two');expect(f.store.submission('two')?.native_thread_id).toBe('thread-1');
   expect(f.calls).toEqual(['start','turn','start','unsubscribe:thread-2','resume:thread-1','turn']);expect(f.clients()).toBe(2);
  }finally{await f.close();}
 });

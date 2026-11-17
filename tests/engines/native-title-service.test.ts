@@ -49,7 +49,7 @@ test('native title request and result preserve exact controls and duplicate rece
 test('native title results reject foreign execution controls and live authority changes',async()=>{
  const f=await fixture();try{
   const pending=f.call();
-  for(const patch of [{session_id:'foreign'},{submission_id:'foreign'},{run_id:'foreign'},{authorization_revision:1},{turn_id:'foreign'},{call_id:'foreign'}])await expect(f.service.handle({action:'title_response',...control,result,...patch})).rejects.toThrow();
+  for(const patch of [{engine_session_id:'foreign'},{submission_id:'foreign'},{run_id:'foreign'},{authorization_revision:1},{turn_id:'foreign'},{call_id:'foreign'}])await expect(f.service.handle({action:'title_response',...control,result,...patch})).rejects.toThrow();
   f.setAuthorized(false);await expect(f.service.handle({action:'title_response',...control,result})).rejects.toThrow(/authority/i);
   f.setAuthorized(true);f.setGeneration(2);await expect(f.service.handle({action:'title_response',...control,result})).rejects.toThrow(/authority/i);
   f.setGeneration(1);await f.service.handle({action:'title_response',...control,result});expect((await pending).success).toBe(true);
