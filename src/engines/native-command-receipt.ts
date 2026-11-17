@@ -6,5 +6,5 @@ export function nativeCommandReceipt(thread:string,turn:string,raw:unknown):Nati
  if(!raw||typeof raw!=='object')return null;
  const item=raw as Record<string,unknown>;
  if(item.type!=='commandExecution'||!['completed','failed','declined'].includes(String(item.status)))return null;
- return nativeCommandReceiptSchema.parse({thread_id:thread,turn_id:turn,item_id:item.id,command:typeof item.command==='string'?redact(item.command):null,cwd:typeof item.cwd==='string'?redact(item.cwd):null,status:item.status,exit_code:typeof item.exitCode==='number'?item.exitCode:null,duration_ms:typeof item.durationMs==='number'?item.durationMs:null});
+ return nativeCommandReceiptSchema.parse({native_thread_id:thread,turn_id:turn,item_id:item.id,command:typeof item.command==='string'?redact(item.command):null,cwd:typeof item.cwd==='string'?redact(item.cwd):null,status:item.status,exit_code:typeof item.exitCode==='number'?item.exitCode:null,duration_ms:typeof item.durationMs==='number'?item.durationMs:null});
 }

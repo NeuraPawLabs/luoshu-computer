@@ -13,7 +13,7 @@ import {NativeCodebaseWorkspaceOwners,type NativeCodebaseWorkspaceIdentity} from
 import {withOutputRoot} from '../runtime/files.js';
 
 const id=z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
-interface Identity {session_id:string;run_id:string;submission_id:string}
+interface Identity {engine_session_id:string;run_id:string;submission_id:string}
 interface Input extends Identity {codebases:NativeCodebaseSpec[]}
 interface Row extends Identity {specs_json:string;assignments_json:string|null;state:'resolving'|'pinned'|'ready'}
 export interface PreparedNativeCodebases {assignments:CodebaseAssignment[];workspace:CodebaseWorkspace;read:string[];write:string[]}
@@ -40,9 +40,9 @@ export class NativeCodebases {
   this.commits=new NativeCodebaseCommits(db);this.owners=new NativeCodebaseWorkspaceOwners(db,options.stateDir);
  }
  private row(identity:Identity):Row|undefined{
-  id.parse(identity.run_id);id.parse(identity.session_id);id.parse(identity.submission_id);
+  id.parse(identity.run_id);id.parse(identity.engine_session_id);id.parse(identity.submission_id);
   const row=this.db.prepare('SELECT * FROM assistant_native_codebases WHERE run_id=?').get(identity.run_id) as Row|undefined;
-  if(row&&(row.session_id!==identity.session_id||row.submission_id!==identity.submission_id))throw Error('Native Codebase identity conflict');return row;
+  if(row&&(row.engine_session_id!==identity.engine_session_id||row.submission_id!==identity.submission_id))throw Error('Native Codebase identity conflict');return row;
  }
  private async stateRoot(){
   const configured=this.options.stateDir;
@@ -68,7 +68,7 @@ export class NativeCodebases {
  async prepare(input:Input,assertCurrent:()=>void=()=>{}):Promise<PreparedNativeCodebases>{
   assertCurrent();const prior=this.row(input),specs=nativeCodebaseSpecsSchema.parse(input.codebases).sort((a,b)=>a.id.localeCompare(b.id)),json=JSON.stringify(specs);
   if(prior&&prior.specs_json!==json)throw Error('Native Codebase specification conflict');
-  if(!prior)this.db.prepare("INSERT INTO assistant_native_codebases VALUES(?,?,?,?,NULL,'resolving')").run(input.run_id,input.session_id,input.submission_id,json);
+  if(!prior)this.db.prepare("INSERT INTO assistant_native_codebases VALUES(?,?,?,?,NULL,'resolving')").run(input.run_id,input.engine_session_id,input.submission_id,json);
   const active=this.preparing.get(input.run_id);if(active){const result=await active;assertCurrent();return result;}
   const controller=new AbortController();this.controllers.set(input.run_id,controller);
   const current=()=>{controller.signal.throwIfAborted();assertCurrent();};
@@ -79,29 +79,29 @@ export class NativeCodebases {
   this.row(identity);this.controllers.get(identity.run_id)?.abort(new Error('Native Codebase preparation cancelled'));
   await this.preparing.get(identity.run_id)?.catch(()=>undefined);
  }
- private settledSession(session_id:string){
-  this.commits.assertSessionSettled(session_id);
-  const rows=this.db.prepare('SELECT session_id,run_id,submission_id,assignments_json,state FROM assistant_native_codebases WHERE session_id=?').all(session_id) as Array<{session_id:string;run_id:string;submission_id:string;assignments_json:string|null;state:string}>;
+ private settledSession(engine_session_id:string){
+  this.commits.assertSessionSettled(engine_session_id);
+  const rows=this.db.prepare('SELECT session_id,run_id,submission_id,assignments_json,state FROM assistant_native_codebases WHERE session_id=?').all(engine_session_id) as Array<{engine_session_id:string;run_id:string;submission_id:string;assignments_json:string|null;state:string}>;
   for(const row of rows){
    id.parse(row.run_id);
-   const identity={session_id:row.session_id,run_id:row.run_id,submission_id:row.submission_id};
-   const cancelled=row.session_id===session_id&&Boolean(this.options.isPreparationCancelled?.(identity));
-   if(row.session_id!==session_id||!row.assignments_json||(!cancelled&&row.state!=='ready')||this.preparing.has(row.run_id)||this.collecting.has(row.run_id))throw Error('Native Codebase workspace is not settled');
+   const identity={engine_session_id:row.engine_session_id,run_id:row.run_id,submission_id:row.submission_id};
+   const cancelled=row.engine_session_id===engine_session_id&&Boolean(this.options.isPreparationCancelled?.(identity));
+   if(row.engine_session_id!==engine_session_id||!row.assignments_json||(!cancelled&&row.state!=='ready')||this.preparing.has(row.run_id)||this.collecting.has(row.run_id))throw Error('Native Codebase workspace is not settled');
   }
   return rows;
  }
- purgeSessionData(session_id:string):void{
+ purgeSessionData(engine_session_id:string):void{
   if(!this.db.inTransaction)throw Error('Native data purge requires the final close transaction');
-  this.settledSession(session_id);this.commits.purgeSessionData(session_id);
-  const rows=this.db.prepare('SELECT run_id,session_id,submission_id FROM assistant_native_codebases WHERE session_id=?').all(session_id) as NativeCodebaseWorkspaceIdentity[];
+  this.settledSession(engine_session_id);this.commits.purgeSessionData(engine_session_id);
+  const rows=this.db.prepare('SELECT run_id,session_id,submission_id FROM assistant_native_codebases WHERE session_id=?').all(engine_session_id) as NativeCodebaseWorkspaceIdentity[];
   for(const row of rows)this.owners.purge(row);
-  this.db.prepare('DELETE FROM assistant_native_codebases WHERE session_id=?').run(session_id);
+  this.db.prepare('DELETE FROM assistant_native_codebases WHERE session_id=?').run(engine_session_id);
  }
- async cleanupSession(session_id:string,current:()=>void=()=>{}):Promise<void>{
-  current();const state=await this.stateRoot();current();const rows=this.settledSession(session_id);await this.assertNoForeignGitLocks(state,rows,current);
-  for(const row of rows){current();await this.owners.cleanup({session_id:row.session_id,run_id:row.run_id,submission_id:row.submission_id},current);current();}
+ async cleanupSession(engine_session_id:string,current:()=>void=()=>{}):Promise<void>{
+  current();const state=await this.stateRoot();current();const rows=this.settledSession(engine_session_id);await this.assertNoForeignGitLocks(state,rows,current);
+  for(const row of rows){current();await this.owners.cleanup({engine_session_id:row.engine_session_id,run_id:row.run_id,submission_id:row.submission_id},current);current();}
  }
- private async assertNoForeignGitLocks(state:string,rows:Array<{session_id:string;run_id:string;submission_id:string;assignments_json:string|null;state:string}>,current:()=>void):Promise<void>{
+ private async assertNoForeignGitLocks(state:string,rows:Array<{engine_session_id:string;run_id:string;submission_id:string;assignments_json:string|null;state:string}>,current:()=>void):Promise<void>{
   for(const row of rows){
    current();if(!row.assignments_json)continue;let assignments:CodebaseAssignment[];try{assignments=z.array(codebaseAssignmentSchema).parse(JSON.parse(row.assignments_json));}catch{throw Error('Native Codebase assignment ownership is invalid');}
    const root=resolve(state,'runs',row.run_id);

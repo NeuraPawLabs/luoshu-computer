@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {z} from 'zod';
 import {withOutputRoot,removeOwnedWorkspace,type OwnedDirectoryIdentity} from '../runtime/files.js';
 
-export interface NativeCodebaseWorkspaceIdentity {session_id:string;run_id:string;submission_id:string}
+export interface NativeCodebaseWorkspaceIdentity {engine_session_id:string;run_id:string;submission_id:string}
 interface Row extends NativeCodebaseWorkspaceIdentity {cwd:string;owner_json:string|null;state:'reserved'|'owned'|'removed'}
 const id=z.string().regex(/^[A-Za-z0-9_-]{1,100}$/u);
 const identitySchema=z.object({dev:z.string().regex(/^\d+$/u),ino:z.string().regex(/^\d+$/u),parent_dev:z.string().regex(/^\d+$/u),parent_ino:z.string().regex(/^\d+$/u)}).strict();
@@ -22,14 +22,14 @@ export class NativeCodebaseWorkspaceOwners {
   if(create)await mkdir(runs,{recursive:true,mode:0o700}).catch(error=>{if((error as NodeJS.ErrnoException).code!=='EEXIST')throw error;});
   return runs;
  }
- private expected(input:NativeCodebaseWorkspaceIdentity){id.parse(input.run_id);id.parse(input.session_id);id.parse(input.submission_id);return input;}
+ private expected(input:NativeCodebaseWorkspaceIdentity){id.parse(input.run_id);id.parse(input.engine_session_id);id.parse(input.submission_id);return input;}
  async prepare(input:NativeCodebaseWorkspaceIdentity):Promise<string>{
   this.expected(input);const existing=this.row(input.run_id),runs=await this.parent(true),cwd=join(runs,input.run_id);
-  if(existing){if(existing.session_id!==input.session_id||existing.submission_id!==input.submission_id||existing.cwd!==cwd)throw Error('Native Codebase workspace ownership binding changed');if(existing.state!=='owned'||!existing.owner_json)throw Error('Native Codebase workspace ownership is unresolved');await this.verify(existing);return cwd;}
+  if(existing){if(existing.engine_session_id!==input.engine_session_id||existing.submission_id!==input.submission_id||existing.cwd!==cwd)throw Error('Native Codebase workspace ownership binding changed');if(existing.state!=='owned'||!existing.owner_json)throw Error('Native Codebase workspace ownership is unresolved');await this.verify(existing);return cwd;}
   const other=this.db.prepare('SELECT run_id FROM native_codebase_workspace_owners WHERE cwd=? OR submission_id=?').get(cwd,input.submission_id) as {run_id:string}|undefined;if(other)throw Error('Native Codebase workspace already belongs to another Run');
   const parentReal=await realpath(runs);const result=await withOutputRoot(parentReal,async parent=>{
    const parentStat=await parent.stat({bigint:true});
-   this.db.prepare("INSERT INTO native_codebase_workspace_owners(run_id,session_id,submission_id,cwd,owner_json,state) VALUES(?,?,?,?,NULL,'reserved')").run(input.run_id,input.session_id,input.submission_id,cwd);
+   this.db.prepare("INSERT INTO native_codebase_workspace_owners(run_id,session_id,submission_id,cwd,owner_json,state) VALUES(?,?,?,?,NULL,'reserved')").run(input.run_id,input.engine_session_id,input.submission_id,cwd);
    const path=join('/proc/self/fd/'+parent.fd,input.run_id);
    try{await mkdir(path,{mode:0o700});}catch(error){if((error as NodeJS.ErrnoException).code==='EEXIST')throw Error('Native Codebase partial workspace ownership is unknown for existing directory');throw error;}
    const child=await open(path,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
@@ -54,10 +54,10 @@ export class NativeCodebaseWorkspaceOwners {
   });
  }
  async assertOwned(input:NativeCodebaseWorkspaceIdentity):Promise<string>{
-  this.expected(input);const row=this.row(input.run_id);if(!row||row.session_id!==input.session_id||row.submission_id!==input.submission_id||row.state!=='owned'||!row.owner_json)throw Error('Native Codebase workspace ownership is unresolved');await this.verify(row);return row.cwd;
+  this.expected(input);const row=this.row(input.run_id);if(!row||row.engine_session_id!==input.engine_session_id||row.submission_id!==input.submission_id||row.state!=='owned'||!row.owner_json)throw Error('Native Codebase workspace ownership is unresolved');await this.verify(row);return row.cwd;
  }
  async cleanup(input:NativeCodebaseWorkspaceIdentity,current:()=>void=()=>{}):Promise<void>{
-  this.expected(input);current();const row=this.row(input.run_id);if(!row||row.session_id!==input.session_id||row.submission_id!==input.submission_id)throw Error('Native Codebase workspace ownership is missing');
+  this.expected(input);current();const row=this.row(input.run_id);if(!row||row.engine_session_id!==input.engine_session_id||row.submission_id!==input.submission_id)throw Error('Native Codebase workspace ownership is missing');
   if(row.cwd!==join(await this.parent(),input.run_id))throw Error('Native Codebase workspace owner path changed');current();
   const original=JSON.stringify(row),check=()=>{current();if(JSON.stringify(this.row(input.run_id))!==original)throw Error('Native Codebase workspace ownership changed during cleanup');};
   if(row.state==='owned'&&row.owner_json)await removeOwnedWorkspace(row.cwd,check,identitySchema.parse(JSON.parse(row.owner_json)));
@@ -66,6 +66,6 @@ export class NativeCodebaseWorkspaceOwners {
   check();this.db.prepare("UPDATE native_codebase_workspace_owners SET state='removed' WHERE run_id=?").run(input.run_id);
  }
  purge(input:NativeCodebaseWorkspaceIdentity):void{
-  this.expected(input);if(!this.db.inTransaction)throw Error('Native Codebase workspace purge requires the final close transaction');const row=this.row(input.run_id);if(row&&(row.session_id!==input.session_id||row.submission_id!==input.submission_id||row.state!=='removed'))throw Error('Native Codebase workspace removal is not confirmed');this.db.prepare('DELETE FROM native_codebase_workspace_owners WHERE run_id=?').run(input.run_id);
+  this.expected(input);if(!this.db.inTransaction)throw Error('Native Codebase workspace purge requires the final close transaction');const row=this.row(input.run_id);if(row&&(row.engine_session_id!==input.engine_session_id||row.submission_id!==input.submission_id||row.state!=='removed'))throw Error('Native Codebase workspace removal is not confirmed');this.db.prepare('DELETE FROM native_codebase_workspace_owners WHERE run_id=?').run(input.run_id);
  }
 }

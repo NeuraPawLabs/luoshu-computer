@@ -5,7 +5,7 @@ import {redact} from '../shared/security.js';
 export interface WorkerCheckpoint {
  execution_id:string;assignment_sha256:string;version:number;
  stage:'started'|'agent_finished'|'collecting'|'delivery_ready'|'delivery_failed';
- evidence:AgentEvidence|null;session_id:string|null;source_snapshot_sha256:string|null;
+ evidence:AgentEvidence|null;engine_session_id:string|null;source_snapshot_sha256:string|null;
  current_delivery_id:string|null;error_code:string|null;updated_at:number;
 }
 type Row=Omit<WorkerCheckpoint,'evidence'>&{evidence_json:string|null};
@@ -42,18 +42,18 @@ export class CheckpointStore{
  agentFinished(executionId:string,evidence:AgentEvidence):WorkerCheckpoint{
   return this.db.transaction(()=>{
    const current=this.read(executionId);if(!current)throw new Error('Checkpoint has not started');
-   const clean=agentEvidenceSchema.parse({...evidence,session_id:evidence.session_id??current.session_id,
+   const clean=agentEvidenceSchema.parse({...evidence,engine_session_id:evidence.engine_session_id??current.engine_session_id,
     summary:redact(evidence.summary),checks:evidence.checks.map(({command,exit_code})=>({command:redact(command),exit_code}))});
    if(current.evidence){if(JSON.stringify(current.evidence)!==JSON.stringify(clean))throw new Error('Checkpoint evidence conflict');return current;}
-   this.db.prepare("UPDATE worker_checkpoints SET version=version+1,stage='agent_finished',evidence_json=?,session_id=?,error_code=NULL,updated_at=? WHERE execution_id=?").run(JSON.stringify(clean),clean.session_id,this.now(),executionId);
+   this.db.prepare("UPDATE worker_checkpoints SET version=version+1,stage='agent_finished',evidence_json=?,session_id=?,error_code=NULL,updated_at=? WHERE execution_id=?").run(JSON.stringify(clean),clean.engine_session_id,this.now(),executionId);
    return this.read(executionId)!;
   })();
  }
  recordSession(executionId:string,sessionId:string):void{
   const current=this.read(executionId);if(!current)throw new Error('Checkpoint has not started');
   if(!sessionId||sessionId.length>200)throw new Error('Invalid Agent session ID');
-  if(current.session_id===sessionId)return;
-  if(current.session_id||current.evidence)throw new Error('Checkpoint session conflict');
+  if(current.engine_session_id===sessionId)return;
+  if(current.engine_session_id||current.evidence)throw new Error('Checkpoint session conflict');
   this.db.prepare('UPDATE worker_checkpoints SET session_id=?,version=version+1,updated_at=? WHERE execution_id=?').run(sessionId,this.now(),executionId);
  }
  collectionFailed(executionId:string,errorCode:string):void{

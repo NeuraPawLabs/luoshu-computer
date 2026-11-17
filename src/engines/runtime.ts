@@ -12,8 +12,8 @@ import type {DevelopmentRootPolicy} from '../development/root-policy.js';
  * unavailable until Core delivery, leases and native task tools are wired. */
 export function attachAssistantEngine(options:{client:WorkerClient;stateDir:string;workerId:string;executable?:string;rootPolicy?:DevelopmentRootPolicy;gitSshCommand?:string;rpcFactory?:(id:string)=>CodexAppServerClient;sandboxMode?:()=>Promise<CodexSandboxMode>|CodexSandboxMode}){
  let service!:CodexEngineService,closed=false,executable=options.executable;
- const {client}=options,store=new CodexSessionStore(client.state.db),codebases=new NativeCodebases(client.state.db,{stateDir:options.stateDir,allowedRoots:()=>options.rootPolicy?.roots()??[],gitSshCommand:options.gitSshCommand,isPreparationCancelled:identity=>{try{return store.preparationState(store.metadata(identity.session_id,identity.submission_id))==='cancelling';}catch{return false;}}});
- const files=new NativeRunFiles(client.state.db,identity=>{const submission=store.submission(identity.submission_id);if(!submission||submission.session_key!==identity.session_id||!store.result(identity.session_id,identity.submission_id))return false;return store.metadata(identity.session_id,identity.submission_id).run_id===identity.run_id;},(identity,assertCurrent)=>service.codebaseReceipts(identity,assertCurrent),(identity)=>Promise.resolve(service.commandReceipts(identity)),(identity,sha,current)=>service.checkEvidence(identity,sha,current),(identity,outputs,current)=>codebases.collectDocumentation(identity,outputs,current));
+ const {client}=options,store=new CodexSessionStore(client.state.db),codebases=new NativeCodebases(client.state.db,{stateDir:options.stateDir,allowedRoots:()=>options.rootPolicy?.roots()??[],gitSshCommand:options.gitSshCommand,isPreparationCancelled:identity=>{try{return store.preparationState(store.metadata(identity.engine_session_id,identity.submission_id))==='cancelling';}catch{return false;}}});
+ const files=new NativeRunFiles(client.state.db,identity=>{const submission=store.submission(identity.submission_id);if(!submission||submission.session_key!==identity.engine_session_id||!store.result(identity.engine_session_id,identity.submission_id))return false;return store.metadata(identity.engine_session_id,identity.submission_id).run_id===identity.run_id;},(identity,assertCurrent)=>service.codebaseReceipts(identity,assertCurrent),(identity)=>Promise.resolve(service.commandReceipts(identity)),(identity,sha,current)=>service.checkEvidence(identity,sha,current),(identity,outputs,current)=>codebases.collectDocumentation(identity,outputs,current));
  const pool=new CodexAppServerPool({stateDir:options.stateDir,db:client.state.db,executable:options.executable,rpcFactory:options.rpcFactory,onClosed:()=>service.nativeConnectionLost(),onNotification:(_id,method,params)=>service.notification(method,params),onInteraction:(_id,request)=>service.serverRequest(request)});
  service=new CodexEngineService(store,options.workerId,id=>pool.client(id),{
   workspacePath:(id,session)=>pool.workspacePath(id,session),generation:()=>client.assistantEngineConnection.generation,
@@ -27,7 +27,7 @@ export function attachAssistantEngine(options:{client:WorkerClient;stateDir:stri
   capacity:()=>client.executionCapacity,otherActiveCount:()=>client.executionLoad('native'),
   emit:event=>{
    const connection=client.assistantEngineConnection;
-   if(!connection.authenticated||connection.generation!==((event as any).worker_generation ?? event.connection_generation))throw Error('Native event connection authority expired');
+   if(!connection.authenticated||connection.generation!==((event as any).connection_generation ?? event.connection_generation))throw Error('Native event connection authority expired');
    return client.send(event);
   },
  });

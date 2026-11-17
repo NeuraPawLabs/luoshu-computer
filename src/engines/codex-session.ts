@@ -10,7 +10,7 @@ import {CodexSessionStore,type CodexBinding,type SubmissionRow} from './session-
 export {CodexSessionStore,type CodexBinding} from './session-store.js';
 export interface NativeResourceScope {read:string[];write:string[];resourceRoot?:string}
 export interface CodexSubmission {session_key:string;binding:CodexBinding;cwd:string;input:{type:string;text:string}[];input_sha256:string;submission_id:string;output_schema?:Record<string,unknown>;resources?:NativeResourceScope;prepareResources?:()=>Promise<NativeResourceScope>;prepareInput?:()=>Promise<{type:string;text:string}[]>;assertCurrent?:()=>void}
-interface NativeReceipt {thread_id:string;turn_id:string}
+interface NativeReceipt {native_thread_id:string;turn_id:string}
 const unknown=()=>Object.assign(Error('Codex submission is unresolved; reconcile native state before retrying'),{code:'CODEX_SUBMISSION_UNKNOWN'});
 
 /** One unresolved submission per durable session, independent of connection life. */
@@ -20,12 +20,12 @@ export class CodexSessionService {
  private readonly loaded=new Map<string,CodexAppServerClient>();
  get hasClients(){return this.clients.size>0;}
  releaseClients():void{this.clients.clear();this.loaded.clear();}
- threadClosed(threadId:string):void{for(const key of this.loaded.keys())if(this.store.session(key)?.thread_id===threadId)this.loaded.delete(key);}
+ threadClosed(threadId:string):void{for(const key of this.loaded.keys())if(this.store.session(key)?.native_thread_id===threadId)this.loaded.delete(key);}
  async unsubscribe(key:string,assertCurrent:()=>void):Promise<void>{
   assertCurrent();const session=this.store.session(key);
-  if(!session?.thread_id){if(session&&session.native_status!=='idle')throw Error('Native thread identity remains unknown');return;}
-  const client=await this.client(this.store.binding(key).engine.worker_id,true,assertCurrent);
-  await client.unsubscribeThread({threadId:session.thread_id});assertCurrent();this.loaded.delete(key);
+  if(!session?.native_thread_id){if(session&&session.native_status!=='idle')throw Error('Native thread identity remains unknown');return;}
+  const client=await this.client(this.store.binding(key).engine.device_id,true,assertCurrent);
+  await client.unsubscribeThread({threadId:session.native_thread_id});assertCurrent();this.loaded.delete(key);
  }
  constructor(private readonly store:CodexSessionStore,private readonly rpc:(workerId:string)=>Promise<CodexAppServerClient>|CodexAppServerClient,private readonly workspace:{workspacePath:(id:string,session?:string)=>Promise<string|null>;recoverClient?:(workerId:string)=>Promise<CodexAppServerClient>|CodexAppServerClient;onRecoveredTurn?:(row:SubmissionRow,turn:{id:string;status:string;items?:unknown[];error?:unknown})=>void;sandboxMode?:()=>Promise<CodexSandboxMode>|CodexSandboxMode}={workspacePath:async()=>null}){}
  async assertCurrentRuntime(workerId:string,assertCurrent:()=>void=()=>{}):Promise<void>{
@@ -62,28 +62,28 @@ export class CodexSessionService {
    }
    await client.assertPermissionProfileAvailable(session.cwd,permissionScope.id);assertCurrent();
    const sameProfile=saved&&permissionScope.id===saved.permissions.id&&isDeepStrictEqual(permissionScope.config,saved.permissions.config);
-   if(saved&&sameProfile&&session.thread_id&&this.loaded.get(key)===client){
+   if(saved&&sameProfile&&session.native_thread_id&&this.loaded.get(key)===client){
     // Only runtime roots change. turn/start replaces them atomically before
     // native execution; resuming a loaded thread would keep its old scope.
     const intended=changed?{...saved,permissions:permissionScope,sandbox:{...saved.sandbox,writableRoots:nativeWritableRoots(permissionScope).filter(p=>p!==session.cwd)}}:saved;
-    this.store.attachConfiguredThread(key,session.thread_id,session.session_tree_id,intended,changed?saved:undefined);
-    return{id:session.thread_id,...(session.session_tree_id?{sessionId:session.session_tree_id}:{}),policy:intended,activePermissionProfile:{id:permissionScope.id,extends:null},runtimeWorkspaceRoots:permissionScope.runtimeWorkspaceRoots};
+    this.store.attachConfiguredThread(key,session.native_thread_id,session.session_tree_id,intended,changed?saved:undefined);
+    return{id:session.native_thread_id,...(session.session_tree_id?{sessionId:session.session_tree_id}:{}),policy:intended,activePermissionProfile:{id:permissionScope.id,extends:null},runtimeWorkspaceRoots:permissionScope.runtimeWorkspaceRoots};
    }
    const coreConfig=core?await client.coreThreadConfig(session.cwd):{};assertCurrent();
    const policy={cwd:session.cwd,permissionScope,approvalPolicy:nativeApprovalPolicy,approvalsReviewer:'user' as const,developerInstructions:session.developer_instructions,
     ...(saved?{model:saved.model,modelProvider:saved.modelProvider}:{}),config:{...(saved?.reasoningEffort?{model_reasoning_effort:saved.reasoningEffort}:{}),...coreConfig}};
-   const thread=session.thread_id?await client.resumeThread({threadId:session.thread_id,...policy}):await client.startThread({...policy,serviceName:'luoshu',dynamicTools:core?[]:[...nativeTaskTools(),...nativeCheckTools(),...nativeTitleTools(),...nativeKnowledgeTools()]});
+   const thread=session.native_thread_id?await client.resumeThread({threadId:session.native_thread_id,...policy}):await client.startThread({...policy,serviceName:'luoshu',dynamicTools:core?[]:[...nativeTaskTools(),...nativeCheckTools(),...nativeTitleTools(),...nativeKnowledgeTools()]});
    const effective=validateNativePolicy({...thread.policy,activePermissionProfile:thread.activePermissionProfile,runtimeWorkspaceRoots:thread.runtimeWorkspaceRoots},session.cwd,permissionScope);
    this.store.attachConfiguredThread(key,thread.id,thread.sessionId??null,effective,changed?saved!:undefined);this.loaded.set(key,client);assertCurrent();return{...thread,policy:effective};
   }catch(error){this.store.unknownThread(key);throw error;}
  }
- async prepare(input:{session_key:string;binding:CodexBinding;workspace_id:string;developer_instructions?:string;resources?:NativeResourceScope},assertCurrent:()=>void=()=>{}):Promise<{thread_id:string;session_tree_id:string|null}>{
+ async prepare(input:{session_key:string;binding:CodexBinding;execution_workspace_id:string;developer_instructions?:string;resources?:NativeResourceScope},assertCurrent:()=>void=()=>{}):Promise<{native_thread_id:string;session_tree_id:string|null}>{
   if(input.binding.role==='core'&&input.resources)throw Error('Core sessions cannot prepare Worker resources');
-  await this.assertCurrentRuntime(input.binding.engine.worker_id,assertCurrent);
-  assertCurrent();const cwd=await this.workspace.workspacePath(input.workspace_id,input.session_key);assertCurrent();if(!cwd)throw Error('Codex workspace is unavailable');
+  await this.assertCurrentRuntime(input.binding.engine.device_id,assertCurrent);
+  assertCurrent();const cwd=await this.workspace.workspacePath(input.execution_workspace_id,input.session_key);assertCurrent();if(!cwd)throw Error('Codex workspace is unavailable');
   this.store.ensure(input.binding,input.session_key,cwd,input.developer_instructions);
-  const thread=await this.loadThread(input.session_key,await this.client(input.binding.engine.worker_id,false,assertCurrent),undefined,assertCurrent,input.resources);
-  return{thread_id:thread.id,session_tree_id:thread.sessionId??null};
+  const thread=await this.loadThread(input.session_key,await this.client(input.binding.engine.device_id,false,assertCurrent),undefined,assertCurrent,input.resources);
+  return{native_thread_id:thread.id,session_tree_id:thread.sessionId??null};
  }
  async submit(input:CodexSubmission):Promise<NativeReceipt>{
   input.assertCurrent?.();
@@ -91,13 +91,13 @@ export class CodexSessionService {
   if(!/^[a-f0-9]{64}$/.test(input.input_sha256)||createHash('sha256').update(JSON.stringify(input.input)).digest('hex')!==input.input_sha256)throw Error('Codex submission input digest mismatch');
   // Exact journal replays do not execute and must remain available after an
   // installation update. New work checks drift before reserving an intent.
-  if(!this.store.submission(input.submission_id))await this.assertCurrentRuntime(input.binding.engine.worker_id,input.assertCurrent);
+  if(!this.store.submission(input.submission_id))await this.assertCurrentRuntime(input.binding.engine.device_id,input.assertCurrent);
   input.assertCurrent?.();
   const reserved=this.store.reserve(input.binding,input.session_key,input.cwd,input.submission_id,input.input_sha256);
   if(!reserved.created){
    const pending=this.pending.get(input.submission_id);if(pending)return pending;
-   if(reserved.row.status==='unknown'||!reserved.row.turn_id||!reserved.row.thread_id)throw unknown();
-   return{thread_id:reserved.row.thread_id,turn_id:reserved.row.turn_id};
+   if(reserved.row.status==='unknown'||!reserved.row.turn_id||!reserved.row.native_thread_id)throw unknown();
+   return{native_thread_id:reserved.row.native_thread_id,turn_id:reserved.row.turn_id};
   }
   const operation=this.execute(input);this.pending.set(input.submission_id,operation);
   try{return await operation;}finally{this.pending.delete(input.submission_id);}
@@ -108,31 +108,31 @@ export class CodexSessionService {
    assertCurrent();
    const nativeInput=input.prepareInput?await input.prepareInput():input.input;
    const resources=input.prepareResources?await input.prepareResources():input.resources??{read:[],write:[]};assertCurrent();
-   const client=await this.client(input.binding.engine.worker_id,false,assertCurrent),thread=await this.loadThread(input.session_key,client,input.submission_id,assertCurrent,resources);
+   const client=await this.client(input.binding.engine.device_id,false,assertCurrent),thread=await this.loadThread(input.session_key,client,input.submission_id,assertCurrent,resources);
    assertCurrent();
    this.store.start(input.submission_id,thread.id);
    const turn=await client.startTurn({threadId:thread.id,input:nativeInput,runtimeWorkspaceRoots:thread.policy.permissions.runtimeWorkspaceRoots,permissions:thread.policy.permissions.id,...(input.output_schema?{outputSchema:input.output_schema}:{})});
    try{assertCurrent();this.store.acknowledge(input.submission_id,thread.id,turn.id);}catch(error){try{this.store.lateAcknowledge(input.submission_id,thread.id,turn.id);}catch{this.store.unknown(input.submission_id);}try{await client.interruptTurn({threadId:thread.id,turnId:turn.id});}catch{/** retain unknown for reconciliation */}throw error;}
-   return{thread_id:thread.id,turn_id:turn.id};
+   return{native_thread_id:thread.id,turn_id:turn.id};
   }catch(error){this.store.unknown(input.submission_id);throw error;}
  }
  async interrupt(key:string,turnId:string,assertCurrent:()=>void=()=>{}):Promise<void>{
   assertCurrent();
   const binding=this.store.binding(key),row=this.store.stopping(key,turnId);
-  try{const client=await this.client(binding.engine.worker_id,false,assertCurrent);assertCurrent();await client.interruptTurn({threadId:row.thread_id!,turnId});assertCurrent();}catch(error){this.store.unknown(row.submission_id);throw error;}
+  try{const client=await this.client(binding.engine.device_id,false,assertCurrent);assertCurrent();await client.interruptTurn({threadId:row.native_thread_id!,turnId});assertCurrent();}catch(error){this.store.unknown(row.submission_id);throw error;}
  }
- async steer(input:{session_key:string;submission_id:string;thread_id:string;turn_id:string;input:Array<{type:'text';text:string}>},assertCurrent:()=>void=()=>{}):Promise<{turnId:string}>{
+ async steer(input:{session_key:string;submission_id:string;native_thread_id:string;turn_id:string;input:Array<{type:'text';text:string}>},assertCurrent:()=>void=()=>{}):Promise<{turnId:string}>{
   const current=()=>{
    assertCurrent();this.store.assertSessionOpen(input.session_key);
    const row=this.store.active(input.session_key),session=this.store.session(input.session_key);
-   if(!row||row.status!=='running'||row.submission_id!==input.submission_id||row.thread_id!==input.thread_id||row.turn_id!==input.turn_id||session?.thread_id!==input.thread_id)throw Error('Codex steering scope has no matching active native turn');
+   if(!row||row.status!=='running'||row.submission_id!==input.submission_id||row.native_thread_id!==input.native_thread_id||row.turn_id!==input.turn_id||session?.native_thread_id!==input.native_thread_id)throw Error('Codex steering scope has no matching active native turn');
   };
-  current();const workerId=this.store.binding(input.session_key).engine.worker_id;
+  current();const workerId=this.store.binding(input.session_key).engine.device_id;
   await this.assertCurrentRuntime(workerId,current);
   const client=await this.client(workerId,false,current);current();
   if(this.loaded.get(input.session_key)!==client)throw Error('Codex steering active thread is not loaded');
   try{
-   const result=await client.steerTurn({threadId:input.thread_id,expectedTurnId:input.turn_id,input:input.input});
+   const result=await client.steerTurn({threadId:input.native_thread_id,expectedTurnId:input.turn_id,input:input.input});
    current();if(result.turnId!==input.turn_id)throw Object.assign(Error('Codex steering turn identity mismatch'),{code:'CODEX_RPC_PROTOCOL_ERROR'});
    return result;
   }catch(error){this.store.unknown(input.submission_id);throw error;}
@@ -141,30 +141,30 @@ export class CodexSessionService {
   assertCurrent();
   const session=this.store.session(key);if(!session)throw Error('Codex session is not prepared');
   const row=this.store.active(key);if(!row)return session.native_status==='idle'?'idle':'unknown';
-  if(!row.thread_id||!row.turn_id)return 'unknown';
-  const client=await this.client(this.store.binding(key).engine.worker_id,true,assertCurrent);assertCurrent();
-  const result=await client.readThread({threadId:row.thread_id,includeTurns:true}) as {thread?:{id:string;turns?:{id:string;status:string;items?:unknown[];error?:unknown}[]}};assertCurrent();
-  if(result?.thread?.id!==row.thread_id)throw Error('Codex reconciliation thread identity mismatch');
+  if(!row.native_thread_id||!row.turn_id)return 'unknown';
+  const client=await this.client(this.store.binding(key).engine.device_id,true,assertCurrent);assertCurrent();
+  const result=await client.readThread({threadId:row.native_thread_id,includeTurns:true}) as {thread?:{id:string;turns?:{id:string;status:string;items?:unknown[];error?:unknown}[]}};assertCurrent();
+  if(result?.thread?.id!==row.native_thread_id)throw Error('Codex reconciliation thread identity mismatch');
   const turn=result.thread.turns?.find(t=>t.id===row.turn_id);
   if(!turn){this.store.unknown(row.submission_id);return 'unknown';}
   if(turn.status==='inProgress')return 'running';
   if(turn.status==='completed'||turn.status==='failed'||turn.status==='interrupted'){
    this.workspace.onRecoveredTurn?.(row,turn);
-   this.store.settle(key,row.thread_id,row.turn_id,turn.status==='interrupted'?'cancelled':turn.status);return 'idle';
+   this.store.settle(key,row.native_thread_id,row.turn_id,turn.status==='interrupted'?'cancelled':turn.status);return 'idle';
   }
   this.store.unknown(row.submission_id);return 'unknown';
  }
  private async terminalClient(key:string,submissionId:string,assertCurrent:()=>void){
   assertCurrent();
   const row=this.store.submission(submissionId),session=this.store.session(key);
-  if(!row||row.session_key!==key||!row.thread_id||row.thread_id!==session?.thread_id||!['completed','failed','cancelled'].includes(row.status))throw Error('Native terminal execution required for delivery');
+  if(!row||row.session_key!==key||!row.native_thread_id||row.native_thread_id!==session?.native_thread_id||!['completed','failed','cancelled'].includes(row.status))throw Error('Native terminal execution required for delivery');
   if(this.store.active(key))throw Error('Native session has another active execution; delivery cannot control it');
-  const client=await this.client(this.store.binding(key).engine.worker_id,true,assertCurrent);assertCurrent();
+  const client=await this.client(this.store.binding(key).engine.device_id,true,assertCurrent);assertCurrent();
   if(this.loaded.get(key)!==client){
    if(this.store.active(key))throw Error('Native session has another active execution; delivery cannot load it');
    await this.loadThread(key,client,undefined,assertCurrent);
   }
-  return{client,threadId:row.thread_id};
+  return{client,threadId:row.native_thread_id};
  }
  private async backgroundProcesses(client:CodexAppServerClient,threadId:string,assertCurrent:()=>void){
   const pageSchema=z.object({data:z.array(z.object({processId:z.string().min(1),itemId:z.string().min(1)})),nextCursor:z.string().nullable().optional()});
@@ -185,10 +185,10 @@ export class CodexSessionService {
  }
  async assertCheckQuiescent(key:string,submissionId:string,assertCurrent:()=>void){
   assertCurrent();const row=this.store.submission(submissionId),session=this.store.session(key);
-  if(row?.session_key!==key||row.status!=='running'||!row.thread_id||row.thread_id!==session?.thread_id||!row.turn_id)throw Error('Native check turn is not active');
-  const client=await this.client(this.store.binding(key).engine.worker_id,false,assertCurrent);assertCurrent();
+  if(row?.session_key!==key||row.status!=='running'||!row.native_thread_id||row.native_thread_id!==session?.native_thread_id||!row.turn_id)throw Error('Native check turn is not active');
+  const client=await this.client(this.store.binding(key).engine.device_id,false,assertCurrent);assertCurrent();
   if(this.loaded.get(key)!==client)throw Error('Native check thread is not loaded');
-  if((await this.backgroundProcesses(client,row.thread_id,assertCurrent)).length)throw Error('Native check has active background processes');
+  if((await this.backgroundProcesses(client,row.native_thread_id,assertCurrent)).length)throw Error('Native check has active background processes');
  }
  async stopBackground(key:string,submissionId:string,assertCurrent:()=>void=()=>{}):Promise<void>{
   const {client,threadId}=await this.terminalClient(key,submissionId,assertCurrent);

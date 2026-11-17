@@ -38,7 +38,7 @@ export class NativeIndexPublication {
   git_dir TEXT PRIMARY KEY,binding TEXT NOT NULL,directory TEXT NOT NULL,token TEXT NOT NULL,owner TEXT,anchor TEXT);`);}
  private row(path:string){return this.db.prepare('SELECT * FROM native_index_publications WHERE git_dir=?').get(path) as Row|undefined;}
  assertSessionSettled(session:string):void{
-  if(this.db.prepare("SELECT 1 FROM native_index_publications WHERE json_extract(binding,'$.identity.session_id')=? LIMIT 1").get(session))throw Error('Native index publication is not settled');
+  if(this.db.prepare("SELECT 1 FROM native_index_publications WHERE json_extract(binding,'$.identity.engine_session_id')=? LIMIT 1").get(session))throw Error('Native index publication is not settled');
  }
  async publish(gitDir:string,binding:string,indexFile:string,current:()=>void,publishRef:()=>Promise<void>):Promise<void>{
   current();const boot=(await readFile('/proc/sys/kernel/random/boot_id','utf8')).trim(),self=await processIdentity(process.pid);if(!self)throw conflict();

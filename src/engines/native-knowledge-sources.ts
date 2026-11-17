@@ -15,8 +15,8 @@ const contained=(root:string,path:string)=>{const rel=relative(root,path);return
 const validCommit=(value:string)=>/^[a-f0-9]{40,64}$/u.test(value);
 
 /** Semantic constraints shared with Core. Source references never grant scope. */
-export function assertKnowledgeKind(value:{kind:'analysis'|'reference'|'business';scope:{kind:'codebase'|'work_context';id:string};sources:SourceRef[];body:string}):void {
- if(value.kind==='business'&&value.scope.kind!=='work_context')throw Error('Business knowledge belongs to a WorkContext');
+export function assertKnowledgeKind(value:{kind:'analysis'|'reference'|'business';scope:{kind:'codebase'|'session_set';id:string};sources:SourceRef[];body:string}):void {
+ if(value.kind==='business'&&value.scope.kind!=='session_set')throw Error('Business knowledge belongs to a SessionSet');
  if(value.kind==='reference'&&(value.body!==''||!value.sources.length))throw Error('Reference knowledge requires sources and an empty body');
  if(value.kind==='analysis'&&!value.sources.length)throw Error('Analysis knowledge requires sources');
  if(value.scope.kind==='codebase'&&(!value.sources.length||value.sources.some(source=>source.codebase_id!==value.scope.id)))throw Error('Codebase knowledge requires sources from its own Codebase');

@@ -42,10 +42,10 @@ export class NativeCheckWindow {
   this.capturing=true;const revision=this.revision;
   try{
    await this.options.quiescent();const after=nativeCheckTargetsSchema.parse(await this.options.snapshot());this.authorized();
-   const receipts=this.options.commands().filter(c=>w.commands.has(c.item_id)),complete=receipts.length===w.commands.size&&receipts.every(c=>c.thread_id===this.options.thread&&c.turn_id===this.options.turn&&c.command!==null&&c.cwd!==null&&c.exit_code!==null);
+   const receipts=this.options.commands().filter(c=>w.commands.has(c.item_id)),complete=receipts.length===w.commands.size&&receipts.every(c=>c.native_thread_id===this.options.thread&&c.turn_id===this.options.turn&&c.command!==null&&c.cwd!==null&&c.exit_code!==null);
    const invalid=w.invalid||this.revision!==revision||this.active.size>0||!w.commands.size||!complete||!sameCheckTargets(w.before,after);
    const status=invalid?'invalidated':receipts.every(c=>c.status==='completed'&&c.exit_code===0)?'passed':'failed';
-   const receipt=nativeCheckReceiptSchema.parse({check_id:w.id,thread_id:this.options.thread,turn_id:this.options.turn,purpose:w.purpose,command_ids:[...w.commands],before:w.before,after,status});
+   const receipt=nativeCheckReceiptSchema.parse({check_id:w.id,native_thread_id:this.options.thread,turn_id:this.options.turn,purpose:w.purpose,command_ids:[...w.commands],before:w.before,after,status});
    this.options.save(receipt);this.window=undefined;return receipt;
   }finally{this.capturing=false;}
  });}

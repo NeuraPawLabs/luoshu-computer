@@ -9,7 +9,7 @@ import {runGitCommand} from '../runtime/git-command.js';
 import {withOutputRoot} from '../runtime/files.js';
 import {NativeIndexPublication} from './native-index-publication.js';
 
-interface Identity {run_id:string;session_id:string;submission_id:string}
+interface Identity {run_id:string;engine_session_id:string;submission_id:string}
 interface Receipt {identity_json:string;tree:string;head:string|null;created_at:number}
 const paths=(raw:string)=>raw.split('\0').filter(Boolean);
 async function fileBytes(repo:string,path:string,allowLink=false):Promise<{bytes:Buffer;mode:string}|null>{
@@ -36,7 +36,7 @@ export class NativeCodebaseCommits {
  purgeSessionData(session:string):void{
   if(!this.db.inTransaction)throw Error('Native data purge requires the final close transaction');
   this.assertSessionSettled(session);
-  this.db.prepare("DELETE FROM native_codebase_commits WHERE json_extract(identity_json,'$.identity.session_id')=?").run(session);
+  this.db.prepare("DELETE FROM native_codebase_commits WHERE json_extract(identity_json,'$.identity.engine_session_id')=?").run(session);
  }
  async collect(identity:Identity,assignment:CodebaseAssignment,prepared:PreparedCodebase,assertCurrent:()=>void,options:{gitDir?:string;wholeRepository?:boolean}={}){
   assertCurrent();

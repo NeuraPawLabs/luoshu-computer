@@ -77,7 +77,7 @@ export class DevelopmentAgentSessions {
 
   async history(agent: AgentId, cwd: string, id: string): Promise<Extract<DevelopmentResult, { action: 'history' }>> {
     const history = agent === 'codex' ? await this.codexHistory(cwd, id) : this.openCodeHistory(cwd, id);
-    return { action: 'history', path: cwd, agent, session_id: id, text: history.text, truncated: history.truncated };
+    return { action: 'history', path: cwd, agent, engine_session_id: id, text: history.text, truncated: history.truncated };
   }
 
   async assertResumable(agent: AgentId, cwd: string, id: string): Promise<void> {
