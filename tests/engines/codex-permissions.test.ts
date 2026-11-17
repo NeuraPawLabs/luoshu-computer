@@ -74,12 +74,12 @@ test('new and resumed PTYs read changed permissions without restarting or changi
  try{
   await service.handle({...open,session_id:'first',mode:'new'});
   await expect.poll(async()=>{try{return (await readFile(calls,'utf8')).trim().split('\n').length;}catch{return 0;}}).toBe(1);
-  await service.handle({action:'codex_settings'});
+  await permissions.update('danger-full-access',(await permissions.state()).revision);
   await service.handle({...open,session_id:'second',mode:'resume',engine_session_id:'native-session'});
   await expect.poll(async()=>(await readFile(calls,'utf8')).trim().split('\n').length).toBe(2);
   const args=(await readFile(calls,'utf8')).trim().split('\n').map(line=>JSON.parse(line));
   expect(args[0]).toEqual(expect.arrayContaining(['--sandbox','workspace-write']));
-  expect(args[1]).toEqual(expect.arrayContaining(['resume','native-session','--sandbox','workspace-write']));
+  expect(args[1]).toEqual(expect.arrayContaining(['resume','native-session','--sandbox','danger-full-access','approval_policy="never"']));
   expect(service.sessions.read('first',0).session.status).toBe('running');
  }finally{await service.stopAll();await rm(root,{recursive:true,force:true});}
 });
