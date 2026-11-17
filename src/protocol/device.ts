@@ -59,6 +59,9 @@ export const deviceServiceReportSchema = z.object({
   if (!knownServiceTypes.has(value.type) && value.features.length > 0) {
     ctx.addIssue({ code: 'custom', path: ['features'], message: 'Unknown service features are not callable' });
   }
+  if (!knownServiceTypes.has(value.type) && value.status !== 'unavailable') {
+    ctx.addIssue({ code: 'custom', path: ['status'], message: 'Unknown services must be unavailable' });
+  }
   const required: Record<string, string[]> = {
     task_execution: ['task_scope', 'live_progress'],
     development: ['browse', 'repository', 'native_history', 'terminal', 'codebase_preparation'],
@@ -113,7 +116,7 @@ export type DeviceMutableConfiguration = z.infer<typeof deviceMutableConfigurati
 
 export const deviceConfigurationStateSchema = z.object({
   desired_revision: z.string().min(1).max(100),
-  applied_revision: z.string().max(100).nullable(),
+  applied_revision: z.string().min(1).max(100).nullable(),
   desired: deviceMutableConfigurationSchema,
   applied: deviceMutableConfigurationSchema.nullable(),
   status: z.enum(['applied', 'pending', 'blocked', 'failed']),
@@ -141,4 +144,19 @@ export const deviceConfigurationResponseSchema = z.object({
   type: z.literal('device_configuration_response'), request_id: idSchema, device_id: idSchema, connection_generation: z.number().int().positive(),
   requested_revision: z.string().min(1).max(100), status: z.enum(['applied', 'pending', 'blocked', 'failed']),
   state: deviceConfigurationStateSchema,
-}).strict();
+}).strict().superRefine((value, ctx) => {
+  if (value.status !== value.state.status) {
+    ctx.addIssue({ code: 'custom', path: ['status'], message: 'Response status must match configuration state status' });
+  }
+  if (value.requested_revision !== value.state.desired_revision) {
+    ctx.addIssue({ code: 'custom', path: ['requested_revision'], message: 'Response revision must match state desired revision' });
+  }
+  if (value.status === 'applied' && (
+    value.state.applied === null ||
+    value.state.applied_revision !== value.state.desired_revision ||
+    JSON.stringify(value.state.applied) !== JSON.stringify(value.state.desired) ||
+    value.state.error !== null
+  )) {
+    ctx.addIssue({ code: 'custom', path: ['state'], message: 'Applied response requires the matching actual configuration' });
+  }
+});
