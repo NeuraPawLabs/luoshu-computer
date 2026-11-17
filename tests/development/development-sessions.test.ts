@@ -94,7 +94,7 @@ test('starts the Agent PTY with an explicit UTF-8 locale', async () => {
 
 test('resume uses the native resume argument and suppresses Ctrl-Z', async () => {
   const data = await fixture(); const sessions = new DevelopmentSessions({ agentPaths: { codex: data.executable }, roots: [data.root] });
-  await sessions.open({ action: 'open', session_id: 's2', agent: 'codex', agent_session_id: 'native-s2', cwd: data.root, mode: 'resume', cols: 80, rows: 24 });
+  await sessions.open({ action: 'open', session_id: 's2', agent: 'codex', engine_session_id: 'native-s2', cwd: data.root, mode: 'resume', cols: 80, rows: 24 });
   sessions.input('s2', '\x1ahello'); await new Promise(resolve => setTimeout(resolve, 100));
   expect(sessions.read('s2', 0).chunks.map(chunk => chunk.data).join('')).toContain('hello');
 });
@@ -140,7 +140,7 @@ test.each([['codex','new'],['codex','resume'],['opencode','new']] as const)('dev
  const {readFile,rm}=await import('node:fs/promises');const root=await mkdtemp(join(tmpdir(),'development-git-'));const executable=join(root,'agent'),output=join(root,'captured.json');
  await writeFile(executable,`#!/usr/bin/env node\nrequire('fs').writeFileSync(${JSON.stringify(output)},JSON.stringify({args:process.argv.slice(2),ssh:process.env.GIT_SSH_COMMAND,variant:process.env.GIT_SSH_VARIANT}));\n`,{mode:0o755});
  const {DevelopmentService}=await import('../../src/development/service.js');const service=new DevelopmentService({roots:[root],agentPaths:{[agent]:executable},gitSshCommand:'node git-helper --socket /private/socket'});
- try{await service.handle({action:'open',session_id:'git_session',...(mode==='resume'?{agent_session_id:'native-git'}:{}),agent,cwd:root,mode,cols:80,rows:24});await expect.poll(async()=>{try{return JSON.parse(await readFile(output,'utf8'));}catch{return null;}}).toMatchObject({ssh:'node git-helper --socket /private/socket',variant:'ssh'});
+ try{await service.handle({action:'open',session_id:'git_session',...(mode==='resume'?{engine_session_id:'native-git'}:{}),agent,cwd:root,mode,cols:80,rows:24});await expect.poll(async()=>{try{return JSON.parse(await readFile(output,'utf8'));}catch{return null;}}).toMatchObject({ssh:'node git-helper --socket /private/socket',variant:'ssh'});
  const captured=JSON.parse(await readFile(output,'utf8'));if(agent==='codex'){expect(captured.args).toContain('sandbox_workspace_write.network_access=true');expect(captured.args).toContain('shell_environment_policy.set.GIT_SSH_COMMAND="node git-helper --socket /private/socket"');if(mode==='resume')expect(captured.args).toContain('resume');}
  }finally{await service.stopAll();await rm(root,{recursive:true,force:true});}
 });
