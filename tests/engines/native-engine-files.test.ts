@@ -107,7 +107,7 @@ test('cleanup cannot delete a prepared Run while a replay is still writing input
 });
 test('immutable delivery freezes native command receipts alongside files without recollecting on retry',async()=>{
  const f=await fixture();let collected=0;
- const commands=[{thread_id:'thread',turn_id:'turn',item_id:'command',command:'npm test',cwd:f.root,status:'completed' as const,exit_code:0,duration_ms:5}];
+ const commands=[{native_thread_id:'thread',turn_id:'turn',item_id:'command',command:'npm test',cwd:f.root,status:'completed' as const,exit_code:0,duration_ms:5}];
  try{
   const files=new NativeRunFiles(f.db,()=>true,async()=>[],identity=>{collected++;expect(identity).toEqual({session_id:'session',run_id:'run-a',submission_id:'submission-run-a'});return commands;});
   const paths=await files.prepare(input(f.root));await writeFile(join(paths.outputs,'result.txt'),'result');

@@ -6,7 +6,7 @@ import {CodexSessionStore} from '../../src/engines/session-store.js';
 import {withNativePolicy} from '../helpers/native-policy.js';
 import type {EngineWireEvent} from '../../src/protocol/index.js';
 
-const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:2,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}};
+const binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:2,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}};
 const control={request_id:'title-receipt',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,turn_id:'turn',call_id:'native-call'};
 const result={success:true,updated:true,title:'公司研究',version:2};
 describe.each([
@@ -17,7 +17,7 @@ async function fixture(transport?:(event:EngineWireEvent)=>void|Promise<void>){
  const db=new Database(':memory:'),store=new CodexSessionStore(db),events:any[]=[],starts:any[]=[],turns:any[]=[];let authorized=true,generation=1;
  const rpc:any={initialize:async()=>({}),startThread:async(params:any)=>{starts.push(params);return{id:'thread'};},resumeThread:async()=>({id:'thread'}),startTurn:async(params:any)=>{turns.push(params);return{id:'turn'};},interruptTurn:async()=>{},readThread:async()=>({thread:{id:'thread',turns:[{id:'turn',status:'completed',items:[]}]}})};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture',emit:event=>{events.push(event);return transport?.(event);},authorized:()=>authorized,generation:()=>generation});
- await service.handle({action:'session_prepare',request_id:'prepare',session_id:'session',binding,workspace_id:'workspace'});
+ await service.handle({action:'session_prepare',request_id:'prepare',session_id:'session',binding,execution_workspace_id:'workspace'});
  const input=[{type:'text',text:JSON.stringify({luoshu_conversation_context:{title_source:'provisional',title_version:1}})}];
  await service.handle({action:'submit',request_id:'submit',lease_ms:120000,submission:{session_id:'session',submission_id:'submission',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
  const call=(patch:Record<string,unknown>={},args:unknown={title:'公司研究',expected_version:1})=>service.serverRequest({id:7,method:'item/tool/call',params:{threadId:'thread',turnId:'turn',callId:'native-call',tool,arguments:args,...patch}}) as Promise<any>;
@@ -34,7 +34,7 @@ test('new native threads register title metadata alongside Task and Check withou
 test('native title request and result preserve exact controls and duplicate receipts',async()=>{
  const f=await fixture();try{
   const pending=f.call(),duplicate=f.call();
-  expect(f.events).toMatchObject([{session_id:'session',worker_generation:1,source:{conversation_id:'room',agent_id:'agent',actor_id:'alice',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,worker_id:'worker',worker_generation:1,native:{thread_id:'thread',turn_id:'turn',item_id:null}},event:{kind,request_id:'native-call',update:{title:'公司研究',expected_version:1}}}]);
+  expect(f.events).toMatchObject([{session_id:'session',worker_generation:1,source:{session_id:'room',agent_id:'agent',actor_id:'alice',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,device_id:'worker',worker_generation:1,native:{native_native_thread_id:'thread',turn_id:'turn',item_id:null}},event:{kind,request_id:'native-call',update:{title:'公司研究',expected_version:1}}}]);
   const ack={action:'title_response',...control};
   expect(await f.service.handle({...ack,result})).toEqual(ack);
   expect(await pending).toEqual({success:true,contentItems:[{type:'inputText',text:JSON.stringify({updated:true,title:'公司研究',version:2})}]});expect(await duplicate).toEqual(await pending);
@@ -84,7 +84,7 @@ test.each(['completed','failed','interrupted','recovered','disconnect','process-
   else if(mode==='disconnect')await f.service.disconnect();
   else if(mode==='process-loss')f.service.nativeConnectionLost();
   else if(mode==='interrupt')await f.service.handle({action:'interrupt',request_id:'interrupt',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,turn_id:'turn'});
-  else if(mode==='session-revocation')await expect(f.service.handle({action:'session_close',request_id:'close',session_id:'session',binding})).rejects.toThrow(/active|unresolved/i);
+  else if(mode==='session-revocation')await expect(f.service.handle({action:'session_close',request_id:'close',engine_session_id:'session',binding})).rejects.toThrow(/active|unresolved/i);
   else await f.service.close();
   const reply=await pending;expect(reply.success).toBe(false);expect(JSON.parse(reply.contentItems[0].text).error).toMatch(/unknown/i);
   await expect(f.service.handle({action:'title_response',...control,result})).rejects.toThrow();
