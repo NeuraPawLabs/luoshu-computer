@@ -12,7 +12,7 @@ function fixture(t){
  const source=join(root,'source');mkdirSync(source);writeFileSync(join(source,'installed.txt'),'signed computer');
  const archive=join(assets,'luoshu-computer-0.1.0-linux-x64.tar.gz');execFileSync('tar',['-czf',archive,'-C',source,'.']);const bytes=readFileSync(archive);
  const keys=generateKeyPairSync('ed25519'),publicKey=keys.publicKey.export({format:'pem',type:'spki'}).toString(),keyPath=join(root,'public.pem');writeFileSync(keyPath,publicKey);
- const manifest=Buffer.from(JSON.stringify({version:'0.1.0',protocol_version:8,releases:{'linux-x64':{path:'/computer/releases/0.1.0/linux-x64.tar.gz',size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}}},null,2)+'\n');
+ const manifest=Buffer.from(JSON.stringify({version:'0.1.0',protocol_version:9,releases:{'linux-x64':{path:'/computer/releases/0.1.0/linux-x64.tar.gz',size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}}},null,2)+'\n');
  writeFileSync(join(assets,'manifest.json'),manifest);writeFileSync(join(assets,'manifest.sig'),sign(null,manifest,keys.privateKey));
  writeFileSync(join(assets,'release.json'),JSON.stringify({version:'0.1.0'},null,2));writeFileSync(join(assets,'install.sh'),'unused');
  const sums=()=>writeFileSync(join(assets,'SHA256SUMS'),['manifest.json','manifest.sig','install.sh','luoshu-computer-0.1.0-linux-x64.tar.gz'].map(name=>createHash('sha256').update(readFileSync(join(assets,name))).digest('hex')+'  '+name+'\n').join(''));sums();
@@ -33,7 +33,7 @@ for(const mutation of ['signature','manifest','wrong-key','missing-signature','p
  if(mutation==='manifest')writeFileSync(join(f.assets,'manifest.json'),f.manifest.toString().replace('0.1.0','0.2.0'));
  if(mutation==='wrong-key')writeFileSync(f.keyPath,generateKeyPairSync('ed25519').publicKey.export({format:'pem',type:'spki'}));
  if(mutation==='missing-signature')rmSync(join(f.assets,'manifest.sig'));
- if(mutation==='protocol'){const m=Buffer.from(f.manifest.toString().replace('"protocol_version": 8','"protocol_version": 7'));writeFileSync(join(f.assets,'manifest.json'),m);writeFileSync(join(f.assets,'manifest.sig'),sign(null,m,f.keys.privateKey));}
+ if(mutation==='protocol'){const m=Buffer.from(f.manifest.toString().replace('"protocol_version": 9','"protocol_version": 7'));writeFileSync(join(f.assets,'manifest.json'),m);writeFileSync(join(f.assets,'manifest.sig'),sign(null,m,f.keys.privateKey));}
  if(mutation==='archive')writeFileSync(join(f.assets,'luoshu-computer-0.1.0-linux-x64.tar.gz'),'tampered');
  if(mutation!=='missing-signature')f.sums();
  const result=f.run();assert.notEqual(result.status,0,`accepted ${mutation}: ${result.stdout}`);assert.equal(existsSync(f.current),false);

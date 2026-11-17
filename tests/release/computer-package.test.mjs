@@ -22,7 +22,7 @@ test('computer package contains a Linux release and manifest digest', async () =
   const packagedVersion = execFileSync('tar', ['-xOzf', archive, './app/dist/cli/version.js'], { encoding: 'utf8' });
   const runtime = await import(`data:text/javascript,${encodeURIComponent(packagedVersion)}`);
   assert.equal(runtime.COMPUTER_VERSION, manifest.version);
-  assert.equal(manifest.protocol_version, 8);
+  assert.equal(manifest.protocol_version, 9);
   assert.equal(manifest.releases['linux-x64'].sha256.length, 64);
   assert.ok(existsSync(join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))));
   const listing = execFileSync('tar', ['-tzf', join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))], { encoding: 'utf8' });
