@@ -16,7 +16,7 @@ export class NativeCodebaseWorkspaceOwners {
  constructor(private readonly db:Database.Database,private readonly stateDir:string){db.exec(`CREATE TABLE IF NOT EXISTS native_codebase_workspace_owners(
   run_id TEXT PRIMARY KEY,session_id TEXT NOT NULL,submission_id TEXT NOT NULL UNIQUE,
   cwd TEXT NOT NULL UNIQUE,owner_json TEXT,state TEXT NOT NULL);`);}
- private row(run_id:string){return this.db.prepare('SELECT * FROM native_codebase_workspace_owners WHERE run_id=?').get(run_id) as Row|undefined;}
+ private row(run_id:string){return this.db.prepare('SELECT run_id,session_id AS engine_session_id,submission_id,cwd,owner_json,state FROM native_codebase_workspace_owners WHERE run_id=?').get(run_id) as Row|undefined;}
  private async parent(create=false){
   const root=await realpath(this.stateDir),runs=join(root,'runs');
   if(create)await mkdir(runs,{recursive:true,mode:0o700}).catch(error=>{if((error as NodeJS.ErrnoException).code!=='EEXIST')throw error;});

@@ -18,7 +18,7 @@ async function fixture(){
  await writeFile(join(source,'index.txt'),'base');await git(['add','.']);await git(['commit','-m','initial']);const base=await git(['rev-parse','HEAD']);
  const db=new Database(':memory:'),service=new NativeCodebases(db,{stateDir:state,allowedRoots:()=>[source]});
  const spec={id:'11111111-1111-4111-8111-111111111111',alias:'app',access_mode:'write' as const,source:{kind:'local' as const,path:source},root_path:'.',default_branch:'main'};
- const input={session_id:'session',run_id:'run',submission_id:'submission',codebases:[spec]};
+ const input={engine_session_id:'session',run_id:'run',submission_id:'submission',codebases:[spec]};
  return{root,source,state,git,base,db,service,spec,input,close:async()=>{db.close();await workspaceHelpers.removeCodebaseWorkspace(join(state,'runs','run','references','app'));await rm(root,{recursive:true,force:true});}};
 }
 test('native Codebase journal pins real source commit and coalesces repeat preparation across service restart',async()=>{

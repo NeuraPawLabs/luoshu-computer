@@ -41,7 +41,7 @@ export class NativeCodebases {
  }
  private row(identity:Identity):Row|undefined{
   id.parse(identity.run_id);id.parse(identity.engine_session_id);id.parse(identity.submission_id);
-  const row=this.db.prepare('SELECT * FROM assistant_native_codebases WHERE run_id=?').get(identity.run_id) as Row|undefined;
+  const row=this.db.prepare('SELECT run_id,session_id AS engine_session_id,submission_id,specs_json,assignments_json,state FROM assistant_native_codebases WHERE run_id=?').get(identity.run_id) as Row|undefined;
   if(row&&(row.engine_session_id!==identity.engine_session_id||row.submission_id!==identity.submission_id))throw Error('Native Codebase identity conflict');return row;
  }
  private async stateRoot(){
@@ -81,7 +81,7 @@ export class NativeCodebases {
  }
  private settledSession(engine_session_id:string){
   this.commits.assertSessionSettled(engine_session_id);
-  const rows=this.db.prepare('SELECT session_id,run_id,submission_id,assignments_json,state FROM assistant_native_codebases WHERE session_id=?').all(engine_session_id) as Array<{engine_session_id:string;run_id:string;submission_id:string;assignments_json:string|null;state:string}>;
+  const rows=this.db.prepare('SELECT session_id AS engine_session_id,run_id,submission_id,assignments_json,state FROM assistant_native_codebases WHERE session_id=?').all(engine_session_id) as Array<{engine_session_id:string;run_id:string;submission_id:string;assignments_json:string|null;state:string}>;
   for(const row of rows){
    id.parse(row.run_id);
    const identity={engine_session_id:row.engine_session_id,run_id:row.run_id,submission_id:row.submission_id};
