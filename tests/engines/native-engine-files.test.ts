@@ -8,7 +8,7 @@ import {verifyNativeDelivery} from '../../src/protocol/assistant-engine-files-ha
 
 async function fixture(){const root=await mkdtemp(join(tmpdir(),'luoshu-native-files-')),db=new Database(':memory:');const files=new NativeRunFiles(db,()=>true);return{root,db,files,close:async()=>{db.close();await rm(root,{recursive:true,force:true});}};}
 const file={name:'input.txt',mime_type:'text/plain',content_base64:Buffer.from('authorized input').toString('base64')};
-const input=(cwd:string,run='run-a')=>({cwd,session_id:'session',run_id:run,submission_id:'submission-'+run,input_files:[file]});
+const input=(cwd:string,run='run-a')=>({cwd,engine_session_id:'session',run_id:run,submission_id:'submission-'+run,input_files:[file]});
 
 test('native file intents give each Run separate outputs and replay only identical inputs',async()=>{
  const f=await fixture();try{
@@ -109,7 +109,7 @@ test('immutable delivery freezes native command receipts alongside files without
  const f=await fixture();let collected=0;
  const commands=[{native_thread_id:'thread',turn_id:'turn',item_id:'command',command:'npm test',cwd:f.root,status:'completed' as const,exit_code:0,duration_ms:5}];
  try{
-  const files=new NativeRunFiles(f.db,()=>true,async()=>[],identity=>{collected++;expect(identity).toEqual({session_id:'session',run_id:'run-a',submission_id:'submission-run-a'});return commands;});
+  const files=new NativeRunFiles(f.db,()=>true,async()=>[],identity=>{collected++;expect(identity).toEqual({engine_session_id:'session',run_id:'run-a',submission_id:'submission-run-a'});return commands;});
   const paths=await files.prepare(input(f.root));await writeFile(join(paths.outputs,'result.txt'),'result');
   const first=await files.collect('session','run-a','submission-run-a');expect(first.commands).toEqual(commands);
   commands[0].exit_code=1;expect(await new NativeRunFiles(f.db,()=>true).collect('session','run-a','submission-run-a')).toEqual(first);expect(collected).toBe(1);
@@ -119,7 +119,7 @@ test('immutable delivery freezes native command receipts alongside files without
 test('file data purge requires a transaction and preserves a foreign session delivery',async()=>{
  const f=await fixture();try{
   await f.files.prepare(input(f.root));await f.files.collect('session','run-a','submission-run-a');
-  await f.files.prepare({...input(f.root,'foreign'),session_id:'foreign'});await f.files.collect('foreign','foreign','submission-foreign');
+  await f.files.prepare({...input(f.root,'foreign'),engine_session_id:'foreign'});await f.files.collect('foreign','foreign','submission-foreign');
   const foreign=f.db.prepare("SELECT * FROM assistant_native_run_files WHERE session_id='foreign'").get();
   expect(()=>f.files.purgeSessionData('session')).toThrow(/transaction/);
   await f.files.cleanupSession('session');f.db.transaction(()=>f.files.purgeSessionData('session'))();

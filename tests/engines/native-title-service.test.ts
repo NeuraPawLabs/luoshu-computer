@@ -17,9 +17,9 @@ async function fixture(transport?:(event:EngineWireEvent)=>void|Promise<void>){
  const db=new Database(':memory:'),store=new CodexSessionStore(db),events:any[]=[],starts:any[]=[],turns:any[]=[];let authorized=true,generation=1;
  const rpc:any={initialize:async()=>({}),startThread:async(params:any)=>{starts.push(params);return{id:'thread'};},resumeThread:async()=>({id:'thread'}),startTurn:async(params:any)=>{turns.push(params);return{id:'turn'};},interruptTurn:async()=>{},readThread:async()=>({thread:{id:'thread',turns:[{id:'turn',status:'completed',items:[]}]}})};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture',emit:event=>{events.push(event);return transport?.(event);},authorized:()=>authorized,generation:()=>generation});
- await service.handle({action:'session_prepare',request_id:'prepare',session_id:'session',binding,execution_workspace_id:'workspace'});
+ await service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:'session',binding,execution_workspace_id:'workspace'});
  const input=[{type:'text',text:JSON.stringify({luoshu_conversation_context:{title_source:'provisional',title_version:1}})}];
- await service.handle({action:'submit',request_id:'submit',lease_ms:120000,submission:{session_id:'session',submission_id:'submission',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+ await service.handle({action:'submit',request_id:'submit',lease_ms:120000,submission:{engine_session_id:'session',submission_id:'submission',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
  const call=(patch:Record<string,unknown>={},args:unknown={title:'公司研究',expected_version:1})=>service.serverRequest({id:7,method:'item/tool/call',params:{threadId:'thread',turnId:'turn',callId:'native-call',tool,arguments:args,...patch}}) as Promise<any>;
  return{db,store,service,events,starts,turns,call,setAuthorized:(value:boolean)=>authorized=value,setGeneration:(value:number)=>generation=value,cleanup:async()=>{authorized=true;generation=1;await service.close();db.close();}};
 }
@@ -34,7 +34,7 @@ test('new native threads register title metadata alongside Task and Check withou
 test('native title request and result preserve exact controls and duplicate receipts',async()=>{
  const f=await fixture();try{
   const pending=f.call(),duplicate=f.call();
-  expect(f.events).toMatchObject([{session_id:'session',worker_generation:1,source:{session_id:'room',agent_id:'agent',actor_id:'alice',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,device_id:'worker',worker_generation:1,native:{native_native_thread_id:'thread',turn_id:'turn',item_id:null}},event:{kind,request_id:'native-call',update:{title:'公司研究',expected_version:1}}}]);
+  expect(f.events).toMatchObject([{engine_session_id:'session',connection_generation:1,source:{session_id:'room',agent_id:'agent',actor_id:'alice',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,device_id:'worker',connection_generation:1,native:{native_thread_id:'thread',turn_id:'turn',item_id:null}},event:{kind,request_id:'native-call',update:{title:'公司研究',expected_version:1}}}]);
   const ack={action:'title_response',...control};
   expect(await f.service.handle({...ack,result})).toEqual(ack);
   expect(await pending).toEqual({success:true,contentItems:[{type:'inputText',text:JSON.stringify({updated:true,title:'公司研究',version:2})}]});expect(await duplicate).toEqual(await pending);

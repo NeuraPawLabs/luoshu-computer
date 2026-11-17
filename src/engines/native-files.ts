@@ -73,7 +73,7 @@ export class NativeRunFiles {
   const files=taskFilesSchema.parse(raw.input_files),sha=digest(JSON.stringify(files)),prior=this.row(raw.run_id);
   if(prior?.state==='cancelled')throw Error('Native preparation was cancelled');
   if(prior&&(prior.engine_session_id!==raw.engine_session_id||prior.submission_id!==raw.submission_id||prior.cwd!==raw.cwd||prior.input_sha256!==sha))throw Error('Native file intent conflict');
-  if(!prior)this.db.prepare("INSERT INTO assistant_native_run_files VALUES(?,?,?,?,?,'preparing',NULL)").run(raw.run_id,raw.engine_session_id,raw.submission_id,raw.cwd,sha);
+  if(!prior)this.db.prepare("INSERT INTO assistant_native_run_files(run_id,session_id,submission_id,cwd,input_sha256,state,delivery_json) VALUES(?,?,?,?,?,'preparing',NULL)").run(raw.run_id,raw.engine_session_id,raw.submission_id,raw.cwd,sha);
   const active=this.preparing.get(raw.run_id);if(active)return active;
   const promise=this.stage({...raw,input_files:files});this.preparing.set(raw.run_id,promise);
   try{return await promise;}finally{this.preparing.delete(raw.run_id);}

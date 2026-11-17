@@ -26,10 +26,10 @@ async function fixture(){
  const files=new NativeRunFiles(db,i=>Boolean(store.result(i.session_id,i.submission_id)));
  service=new CodexEngineService(store,'worker',rpc,{files,generation:()=>generation,workspacePath:id=>pool.workspacePath(id),unloadIdle:()=>pool.unloadIfIdle('worker',()=>store.activeCount()+files.activeCount()),quiesce:()=>pool.quiesce('worker'),cleanupOwned:async()=>{}});
  const binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'go'}];
- const prepare=(session='s')=>service.handle({action:'session_prepare',request_id:'prepare',session_id:session,execution_workspace_id:session,binding});
- const submit=(id:string)=>service.handle({action:'submit',request_id:'send-'+id,lease_ms:120000,submission:{session_id:'s',submission_id:id,run_id:id,binding,input_message_ids:[id],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+ const prepare=(session='s')=>service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:session,execution_workspace_id:session,binding});
+ const submit=(id:string)=>service.handle({action:'submit',request_id:'send-'+id,lease_ms:120000,submission:{engine_session_id:'s',submission_id:id,run_id:id,binding,input_message_ids:[id],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
  const terminal=(id:string)=>{const row=store.submission(id)!;service.notification('turn/completed',{threadId:row.thread_id,turn:{id:row.turn_id,status:'completed',items:[]}});};
- const collect=(id:string)=>service.handle({action:'collect_result',request_id:'collect-'+id,session_id:'s',run_id:id,submission_id:id,authorization_revision:1});
+ const collect=(id:string)=>service.handle({action:'collect_result',request_id:'collect-'+id,engine_session_id:'s',run_id:id,submission_id:id,authorization_revision:1});
  return{root,db,store,service,pool,files,calls,rpc,prepare,submit,terminal,collect,binding,changeGeneration:()=>{generation++;},clients:()=>clients,async close(){await service.close();await pool.close();db.close();await rm(root,{recursive:true,force:true});}};
 }
 test('delivery succeeds, idle release clears both caches and the next input resumes its exact thread',async()=>{
