@@ -61,7 +61,7 @@ export class WorkerConfigController {
       const current=before??await loadWorkerConfig(this.stateDir),applied=await this.stateFor(current),message=redact(error instanceof Error?error.message:String(error)).slice(0,2000);
       const desired=request.config&&deviceMutableConfigurationSchema.safeParse(request.config).success?deviceMutableConfigurationSchema.parse(request.config):applied.desired;
       const failed:DeviceConfigurationState={desired_revision:desiredRevision||applied.desired_revision,applied_revision:applied.applied_revision,desired,applied:applied.applied,status:(error as {configurationBlocked?:boolean})?.configurationBlocked?'blocked':'failed',error:message};
-      this.applied=failed;await this.persist(failed);return failed;
+      await this.reconcile(failed);this.applied=failed;await this.persist(failed);return failed;
     }
   }
 }

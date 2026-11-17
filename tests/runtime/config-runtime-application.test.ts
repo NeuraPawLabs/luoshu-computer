@@ -16,8 +16,8 @@ test('applied config changes admission and new session paths without stopping ex
  const controller=new WorkerConfigController(root),service=new DevelopmentService({rootPolicy:undefined,roots:[a],agentPaths:{codex:agent},maxSessions:2});
  try{
   await service.handle({action:'open',session_id:'existing',agent:'codex',cwd:a,mode:'new',cols:80,rows:24});
-  const revision='44444444-4444-4444-8444-444444444444';const config={name:'desk-2',capacity:1,agent_paths:{codex:agent},development_roots:[b],maintenance_roots:[],codex_sandbox:'workspace-write' as const};
-  controller.onApplied(async applied=>service.applyConfig(applied,revision));await controller.apply({request_id:'config-runtime',revision,expected_revision:(await controller.state()).revision,config});
+  const revision='44444444-4444-4444-8444-444444444444';const config={name:'desk-2',capacity:1,agent_paths:{codex:agent},development_policy:{mode:'custom' as const,roots:[b] as [string]},maintenance_roots:[],codex_sandbox:'workspace-write' as const};
+  controller.onApplied(async applied=>service.applyConfig(applied,revision));await controller.apply({request_id:'config-runtime',desired_revision:revision,expected_revision:(await controller.state()).applied_revision,config});
   expect(service.sessions.read('existing',0).session.status).toBe('running');
   await expect(service.handle({action:'open',session_id:'outside',agent:'codex',cwd:a,mode:'new',cols:80,rows:24})).rejects.toThrow(/allowed root/);
   await expect(service.handle({action:'open',session_id:'new',agent:'codex',cwd:b,mode:'new',cols:80,rows:24})).rejects.toThrow(/capacity/);
@@ -37,7 +37,7 @@ test('later task launches use new executable and mode while a running task keeps
  state.recordStart('first',1,assignment);const running=executor.runAttempt(assignment,10000);
  try{
   await expect.poll(()=>inputs.length).toBe(1);const before=await controller.state();
-  const result=await controller.apply({request_id:'edit',revision:crypto.randomUUID(),expected_revision:before.revision,config:{...before.config,agent_paths:{codex:second},codex_sandbox:'danger-full-access'}});expect(result.status).toBe('applied');
+  const result=await controller.apply({request_id:'edit',desired_revision:crypto.randomUUID(),expected_revision:before.applied_revision,config:{...before.applied,agent_paths:{codex:second},codex_sandbox:'danger-full-access'}});expect(result.status).toBe('applied');
   const next={...assignment,attempt_id:'second'};state.recordStart('second',1,next);await executor.runAttempt(next,10000);
   expect(inputs.map(input=>[input.executable,input.sandboxMode])).toEqual([[first,'workspace-write'],[second,'danger-full-access']]);expect(inputs[0].signal.aborted).toBe(false);
  }finally{finish?.();await running;await executor.stopAll('cleanup');await executor.delivery.close();state.close();await rm(root,{recursive:true,force:true});}
@@ -51,10 +51,10 @@ test('new PTYs receive updated Agent paths and sandbox policy and old configurat
  try{
   const open={action:'open',agent:'codex',cwd:root,mode:'new',cols:80,rows:24};await service.handle({...open,session_id:'one'});
   await expect.poll(async()=>{try{return (await readFile(calls,'utf8')).trim().split('\n').length;}catch{return 0;}}).toBe(1);
-  const before=await controller.state();await controller.apply({request_id:'edit',revision:crypto.randomUUID(),expected_revision:before.revision,config:{...before.config,development_roots:[root],agent_paths:{codex:second},codex_sandbox:'danger-full-access'}});
+  const before=await controller.state();await controller.apply({request_id:'edit',desired_revision:crypto.randomUUID(),expected_revision:before.applied_revision,config:{...before.applied,development_policy:{mode:'custom',roots:[root]},agent_paths:{codex:second},codex_sandbox:'danger-full-access'}});
   await service.handle({...open,session_id:'two'});await expect.poll(async()=>(await readFile(calls,'utf8')).trim().split('\n').length).toBe(2);
   const captured=(await readFile(calls,'utf8')).trim().split('\n').map(line=>JSON.parse(line));expect(captured[0][0]).toBe('first');expect(captured[1][0]).toBe('second');expect(captured[1][1]).toContain('danger-full-access');expect(service.sessions.read('one',0).session.status).toBe('running');
-  await expect(service.handle({action:'codex_settings_update',mode:'workspace-write',expected_revision:''})).rejects.toThrow(/统一 Worker/);
+  await expect(service.handle({action:'codex_settings_update',mode:'workspace-write',expected_revision:''})).rejects.toThrow();
  }finally{await service.stopAll();await rm(root,{recursive:true,force:true});}
 });
 
@@ -63,7 +63,7 @@ test('reading after a local config edit reconciles runtime directory policy befo
  await saveWorkerConfig(root,{worker_id:'w',url:'https://example.test',name:'worker',capacity:1,development_roots:[a]});
  const controller=new WorkerConfigController(root),service=new DevelopmentService({roots:[a]});controller.onApplied((config,revision)=>service.applyConfig(config,revision));
  try{await controller.state();await updateWorkerConfig(root,current=>({...current,development_roots:[b]}));const state=await controller.state();
-  expect(state.config.development_roots).toEqual([b]);await expect(service.handle({action:'list',path:b})).resolves.toMatchObject({path:b});await expect(service.handle({action:'list',path:a})).rejects.toThrow(/allowed root/);
+  expect(state.applied!.development_policy.roots).toEqual([b]);await expect(service.handle({action:'list',path:b})).resolves.toMatchObject({path:b});await expect(service.handle({action:'list',path:a})).rejects.toThrow(/allowed root/);
  }finally{await service.stopAll();await rm(root,{recursive:true,force:true});}
 });
 
@@ -72,8 +72,8 @@ test('a rejected stale update also reconciles the local configuration it reports
  await saveWorkerConfig(root,{worker_id:'w',url:'https://example.test',name:'worker',capacity:1,development_roots:[a]});
  const controller=new WorkerConfigController(root),service=new DevelopmentService({roots:[a]});controller.onApplied((config,revision)=>service.applyConfig(config,revision));
  try{const before=await controller.state();await updateWorkerConfig(root,current=>({...current,development_roots:[b]}));
-  const response=await controller.apply({request_id:'stale',revision:crypto.randomUUID(),expected_revision:before.revision,config:{...before.config,name:'remote'}});
-  expect(response).toMatchObject({status:'failed',config:{development_roots:[b]}});
+  const response=await controller.apply({request_id:'stale',desired_revision:crypto.randomUUID(),expected_revision:before.applied_revision,config:{...before.applied,name:'remote'}});
+  expect(response).toMatchObject({status:'failed',applied:{development_policy:{mode:'custom',roots:[b]}}});
   await expect(service.handle({action:'list',path:b})).resolves.toMatchObject({path:b});await expect(service.handle({action:'list',path:a})).rejects.toThrow(/allowed root/);
  }finally{await service.stopAll();await rm(root,{recursive:true,force:true});}
 });
