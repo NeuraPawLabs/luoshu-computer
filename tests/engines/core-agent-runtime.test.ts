@@ -8,26 +8,26 @@ import {buildEnvironmentReport} from '../../src/runtime/environment.js';
 import {engineWireRequestSchema} from '../../src/protocol/index.js';
 import {coreToolConfig} from '../../src/engines/core-tool-config.js';
 
-const binding={role:'core' as const,conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,worker_id:'worker',agent:'codex' as const,adapter_version:1 as const}};
+const binding={role:'core' as const,session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,device_id:'worker',agent:'codex' as const,adapter_version:1 as const}};
 const input=[{type:'text' as const,text:'Decide using the advertised runtime capabilities.'}];
 const outputSchema={type:'object',properties:{text:{type:'string'},calls:{type:'array',maxItems:0,items:{type:'object'}}},required:['text','calls'],additionalProperties:false};
-const submission={submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null,output_schema:outputSchema};
+const submission={submission_id:'submission',run_id:'run',engine_session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null,output_schema:outputSchema};
 function fixture(options:{capacity?:()=>number;otherActiveCount?:()=>number}={}){
  const db=new Database(':memory:'),store=new CodexSessionStore(db),events:any[]=[];
  const thread=async(p:any)=>({id:p.threadId??'native',activePermissionProfile:{id:p.permissionScope.id,extends:null},runtimeWorkspaceRoots:p.permissionScope.runtimeWorkspaceRoots,policy:{cwd:p.cwd,model:'fixture',modelProvider:'fixture',reasoningEffort:null,approvalPolicy:nativeApprovalPolicy,approvalsReviewer:'user',sandbox:{type:'readOnly',networkAccess:false}}});
  const rpc:any={initialize:async()=>({}),runtimeExecutable:async()=>'/opt/codex',assertPermissionProfileAvailable:async()=>{},coreThreadConfig:async()=>coreToolConfig({}),startThread:vi.fn(thread),resumeThread:vi.fn(thread),startTurn:vi.fn(async()=>({id:'turn'})),interruptTurn:async()=>{},unsubscribeThread:async()=>({status:'unsubscribed'})};
  const prepareFiles=vi.fn(async()=>{throw Error('Core must not prepare Worker files');});
  const service=new CodexEngineService(store,'worker',()=>rpc,{...options,workspacePath:async()=>'/fixture/workspace',sandboxMode:()=> 'danger-full-access',emit:e=>{events.push(e);},files:{pending:()=>[],activeCount:()=>0,assertSubmissionAllowed(){},hasIntent:()=>false,prepare:prepareFiles} as any});
- return{db,store,rpc,service,events,prepareFiles,prepare:()=>service.handle({action:'session_prepare',request_id:'prepare',session_id:'session',binding,workspace_id:'workspace',developer_instructions:'Core instructions'}),submit:()=>service.handle({action:'submit',request_id:'submit',submission,input,lease_ms:120000}),close:async()=>{await service.close();db.close();}};
+ return{db,store,rpc,service,events,prepareFiles,prepare:()=>service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:'session',binding,execution_workspace_id:'workspace',developer_instructions:'Core instructions'}),submit:()=>service.handle({action:'submit',request_id:'submit',submission,input,lease_ms:120000}),close:async()=>{await service.close();db.close();}};
 }
 test('ready devices advertise the Core runtime; failed audits never advertise it',async()=>{
  for(const status of ['ready','permissions_unavailable'] as const){
-  const report=await buildEnvironmentReport({name:'fixture',capacity:1,probe:async tool=>tool==='codex'?'codex 0.162.1':undefined,supervisorAvailable:async()=>true,nativeAudit:async()=>status});
-  expect(report.assistant_engines?.[0].features.includes('core_agent_runtime' as never)).toBe(status==='ready');
+  const report=await buildEnvironmentReport({name:'fixture',capacity:1,probe:async tool=>tool==='codex'?'codex 0.162.1':undefined,services:[{id:'assistant-engine',type:'assistant_engine',version:'1',agent_id:'codex',status:status==='ready'?'ready':'unavailable',reason:status==='ready'?null:status,features:status==='ready'?['session_resume','turn_status','turn_interrupt','interaction_response','structured_events','attachments','task_operations','delivery','core_agent_runtime']:[]}]});
+  expect(report.services.find(s=>s.type==='assistant_engine')?.features.includes('core_agent_runtime' as never)).toBe(status==='ready');
  }
 });
 test('Core wire requests accept roles, output schemas and full Core instructions',()=>{
- expect(engineWireRequestSchema.safeParse({action:'session_prepare',request_id:'prepare',session_id:'session',binding,workspace_id:'workspace',developer_instructions:'x'.repeat(64000)}).success).toBe(true);
+ expect(engineWireRequestSchema.safeParse({action:'session_prepare',request_id:'prepare',engine_session_id:'session',binding,execution_workspace_id:'workspace',developer_instructions:'x'.repeat(64000)}).success).toBe(true);
  expect(engineWireRequestSchema.safeParse({action:'submit',request_id:'submit',submission,input,lease_ms:120000}).success).toBe(true);
  expect(engineWireRequestSchema.safeParse({action:'submit',request_id:'submit',submission:{...submission,output_schema:undefined},input,lease_ms:120000}).success).toBe(false);
  expect(engineWireRequestSchema.safeParse({action:'submit',request_id:'submit',submission:{...submission,binding:{...binding,role:'worker'}},input,lease_ms:120000}).success).toBe(false);
@@ -61,7 +61,7 @@ test.each(['item/tool/call','item/commandExecution/requestApproval','item/permis
 });
 test('Core rejects resources and attachments before preparing external work',async()=>{
  const f=fixture();try{
-  await expect(f.service.handle({action:'session_prepare',request_id:'prepare',session_id:'session',binding,workspace_id:'workspace',resources:{run_id:'run',submission_id:'submission'}})).rejects.toThrow(/Core.*resource/i);
+  await expect(f.service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:'session',binding,execution_workspace_id:'workspace',resources:{run_id:'run',submission_id:'submission'}})).rejects.toThrow(/Core.*resource/i);
   expect(f.rpc.startThread).not.toHaveBeenCalled();
   await f.prepare();
   await expect(f.service.handle({action:'submit',request_id:'submit',submission,input,input_files:[{name:'input.txt',mime_type:'text/plain',content_base64:'eA=='}],lease_ms:120000})).rejects.toThrow(/Core.*attachment/i);
@@ -78,7 +78,7 @@ test.each(['completed','failed','interrupted'])('Core renewal acknowledges a dur
  const f=fixture();try{
   await f.prepare();await f.submit();
   f.service.notification('turn/completed',{threadId:'native',turn:{id:'turn',status,items:[{id:'answer',type:'agentMessage',phase:'final_answer',text:JSON.stringify({text:'Answer',calls:[]})}]}});
-  const control={request_id:'renew',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1};
+  const control={request_id:'renew',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1};
   expect(f.store.activeCount()).toBe(0);
   await expect(f.service.handle({action:'renew',...control,lease_ms:120000})).resolves.toEqual({action:'renew',...control});
   const result=await f.service.handle({action:'result',...control,request_id:'result'});
