@@ -34,7 +34,7 @@ export async function runComputerDaemon(options: { paths: ComputerPaths }): Prom
   const ssh=gitSshCommand(options.paths.state);const codebasePreparation=createCodebasePreparation(options.paths.state,rootPolicy,ssh);
   let codexEngine!:ReturnType<typeof attachAssistantEngine>;
   let executor!:Executor;
-  client = new WorkerClient({ stateDir: options.paths.state, configController, development, codebasePreparation, nativeAudit:()=>codexEngine.audit(), serviceReports:()=>[codexEngine?.describe(),executor?.describe(),maintenance?.describe?.()].filter((value):value is import('../protocol/index.js').DeviceServiceReport=>Boolean(value)), ...(maintenance?{maintenance}:{}) });
+  client = new WorkerClient({ stateDir: options.paths.state, configController, development, codebasePreparation, nativeAudit:()=>codexEngine.audit(), serviceReports:()=>[codexEngine?.describe(),executor?.describe()].filter((value):value is import('../protocol/index.js').DeviceServiceReport=>Boolean(value)), ...(maintenance?{maintenance}:{}) });
   codexEngine=attachAssistantEngine({client,stateDir:options.paths.state,workerId:config.worker_id,executable:agentPaths.codex,rootPolicy,gitSshCommand:ssh,sandboxMode:()=>codexPermissions.mode()});
   const checkpoints=new CheckpointStore(client.state.db);
   const delivery=new WorkerDeliveryService({state:client.state,checkpoints,stateDir:options.paths.state,isExecutionActive:id=>client.state.activeAttemptIds().includes(id)});
