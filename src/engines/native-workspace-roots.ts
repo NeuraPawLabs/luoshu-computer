@@ -17,7 +17,7 @@ export class NativeWorkspaceRoots {
  constructor(private db:Database.Database,private stateDir:string){db.exec(`CREATE TABLE IF NOT EXISTS native_workspace_owners(
   session_key TEXT PRIMARY KEY,workspace_id TEXT NOT NULL UNIQUE,cwd TEXT NOT NULL UNIQUE,
   owner_json TEXT,state TEXT NOT NULL);`);}
- private row(session:string){return this.db.prepare('SELECT * FROM native_workspace_owners WHERE session_key=?').get(session) as Row|undefined;}
+ private row(session:string){return this.db.prepare('SELECT session_key,workspace_id AS execution_workspace_id,cwd,owner_json,state FROM native_workspace_owners WHERE session_key=?').get(session) as Row|undefined;}
  private async parent(){return join(await realpath(this.stateDir),'assistant-engine-workspaces');}
  async prepare(workspace:string,session:string):Promise<string>{
   id.parse(workspace);id.parse(session);
