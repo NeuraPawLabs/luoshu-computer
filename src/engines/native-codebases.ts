@@ -93,7 +93,7 @@ export class NativeCodebases {
  purgeSessionData(engine_session_id:string):void{
   if(!this.db.inTransaction)throw Error('Native data purge requires the final close transaction');
   this.settledSession(engine_session_id);this.commits.purgeSessionData(engine_session_id);
-  const rows=this.db.prepare('SELECT run_id,session_id,submission_id FROM assistant_native_codebases WHERE session_id=?').all(engine_session_id) as NativeCodebaseWorkspaceIdentity[];
+  const rows=this.db.prepare('SELECT run_id,session_id AS engine_session_id,submission_id FROM assistant_native_codebases WHERE session_id=?').all(engine_session_id) as NativeCodebaseWorkspaceIdentity[];
   for(const row of rows)this.owners.purge(row);
   this.db.prepare('DELETE FROM assistant_native_codebases WHERE session_id=?').run(engine_session_id);
  }

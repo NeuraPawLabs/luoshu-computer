@@ -26,10 +26,10 @@ export class NativeRunFiles {
   CREATE TABLE IF NOT EXISTS assistant_native_run_files(
    run_id TEXT PRIMARY KEY,session_id TEXT NOT NULL,submission_id TEXT NOT NULL UNIQUE,cwd TEXT NOT NULL,
    input_sha256 TEXT NOT NULL,state TEXT NOT NULL,delivery_json TEXT);`);}
- private row(run:string){return this.db.prepare('SELECT * FROM assistant_native_run_files WHERE run_id=?').get(run) as Row|undefined;}
- pending():Identity[]{return this.db.prepare("SELECT session_id,run_id,submission_id FROM assistant_native_run_files WHERE delivery_json IS NULL AND state!='cancelled'").all() as Identity[];}
+ private row(run:string){return this.db.prepare('SELECT run_id,session_id AS engine_session_id,submission_id,cwd,input_sha256,state,delivery_json FROM assistant_native_run_files WHERE run_id=?').get(run) as Row|undefined;}
+ pending():Identity[]{return this.db.prepare("SELECT session_id AS engine_session_id,run_id,submission_id FROM assistant_native_run_files WHERE delivery_json IS NULL AND state!='cancelled'").all() as Identity[];}
  private settledSession(session:string){
-  const rows=this.db.prepare('SELECT session_id,run_id,cwd,state,delivery_json FROM assistant_native_run_files WHERE session_id=?').all(session) as Array<{engine_session_id:string;run_id:string;cwd:string;state:string;delivery_json:string|null}>;
+  const rows=this.db.prepare('SELECT session_id AS engine_session_id,run_id,cwd,state,delivery_json FROM assistant_native_run_files WHERE session_id=?').all(session) as Array<{engine_session_id:string;run_id:string;cwd:string;state:string;delivery_json:string|null}>;
   for(const row of rows){id(row.run_id);if(row.engine_session_id!==session||!row.delivery_json&&row.state!=='cancelled'||this.preparing.has(row.run_id)||this.collecting.has(row.run_id))throw Error('Native owned file delivery is not settled');}
   return rows;
  }
