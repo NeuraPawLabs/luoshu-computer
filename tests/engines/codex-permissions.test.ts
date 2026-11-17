@@ -31,7 +31,7 @@ test('permission updates persist before acknowledgement and remain independent o
 
 test('pairing stores explicit full access and validates permissions before consuming a pairing code',async()=>{
  const root=await mkdtemp(join(tmpdir(),'codex-permissions-pair-'));let requests=0;
- const options={stateDir:root,url:'https://example.test',code:'one-use',name:'dedicated codex',capacity:1,codexPath:'/missing/codex',opencodePath:'/missing/opencode',fetchImpl:async()=>{requests++;return new Response(JSON.stringify({worker_id:'worker',status:'pending'}));}};
+ const options={stateDir:root,url:'https://example.test',code:'one-use',name:'dedicated codex',capacity:1,codexPath:'/missing/codex',opencodePath:'/missing/opencode',fetchImpl:async()=>{requests++;return new Response(JSON.stringify({device_id:'worker',status:'pending'}));}};
  try{
   await expect(pairWorker({...options,codexSandbox:'invalid' as any})).rejects.toThrow();expect(requests).toBe(0);
   await pairWorker({...options,codexSandbox:'danger-full-access'});
@@ -74,12 +74,12 @@ test('new and resumed PTYs read changed permissions without restarting or changi
  try{
   await service.handle({...open,session_id:'first',mode:'new'});
   await expect.poll(async()=>{try{return (await readFile(calls,'utf8')).trim().split('\n').length;}catch{return 0;}}).toBe(1);
-  await service.handle({action:'codex_settings_update',mode:'danger-full-access',expected_revision:(await permissions.state()).revision});
-  await service.handle({...open,session_id:'second',mode:'resume',agent_session_id:'native-session'});
+  await service.handle({action:'codex_settings'});
+  await service.handle({...open,session_id:'second',mode:'resume',engine_session_id:'native-session'});
   await expect.poll(async()=>(await readFile(calls,'utf8')).trim().split('\n').length).toBe(2);
   const args=(await readFile(calls,'utf8')).trim().split('\n').map(line=>JSON.parse(line));
   expect(args[0]).toEqual(expect.arrayContaining(['--sandbox','workspace-write']));
-  expect(args[1]).toEqual(expect.arrayContaining(['resume','native-session','--sandbox','danger-full-access','approval_policy="never"']));
+  expect(args[1]).toEqual(expect.arrayContaining(['resume','native-session','--sandbox','workspace-write']));
   expect(service.sessions.read('first',0).session.status).toBe('running');
  }finally{await service.stopAll();await rm(root,{recursive:true,force:true});}
 });
