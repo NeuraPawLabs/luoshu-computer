@@ -50,15 +50,15 @@ export class DevelopmentService {
       case 'active_sessions': return this.sessions.activeSessions();
       case 'history': {
         const path = await this.files.directory(command.path);
-        return this.agentSessions.history(command.agent, path, (command as any).session_id ?? command.engine_session_id);
+        return this.agentSessions.history(command.agent, path, command.engine_session_id);
       }
       case 'preview': return this.files.preview(command.path);
       case 'open': {
         const cwd = await this.files.directory(command.cwd);
-        const agentSessionId=(command as any).agent_session_id ?? command.engine_session_id;
+        const agentSessionId=command.engine_session_id;
         if (command.mode === 'resume' && agentSessionId)
           await this.agentSessions.assertResumable(command.agent, cwd, agentSessionId);
-        return this.sessions.open({ ...command, cwd, ...(agentSessionId?{agent_session_id:agentSessionId}: {}) } as any);
+        return this.sessions.open({ ...command, cwd, ...(agentSessionId?{engine_session_id:agentSessionId}: {}) } as any);
       }
       case 'read': return this.sessions.read(command.session_id, command.after);
       case 'input': return this.sessions.input(command.session_id, command.data);
