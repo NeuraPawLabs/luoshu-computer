@@ -25,6 +25,7 @@ export interface WorkerClientOptions {
   configController?: WorkerConfigController;
   onAssistantEngineRequest?: (request:EngineWireRequest)=>Promise<EngineWireResponse>;
   nativeAudit?:()=>Promise<'ready'|'login_required'|'permissions_unavailable'|'protocol_unsupported'>;
+  serviceReports?:()=>DeviceServiceReport[];
 }
 
 export class WorkerClient {
@@ -49,6 +50,7 @@ export class WorkerClient {
   private readonly codebasePreparation?:WorkerClientOptions['codebasePreparation'];
   private readonly configController?: WorkerConfigController;
   private readonly nativeAudit?:WorkerClientOptions['nativeAudit'];
+  private readonly serviceReports?:WorkerClientOptions['serviceReports'];
   onAssistantEngineRequest?: WorkerClientOptions['onAssistantEngineRequest'];
   onAssistantEngineDisconnected?:()=>Promise<void>|void;
   assistantEngineActiveCount:()=>number=()=>0;
@@ -70,7 +72,7 @@ export class WorkerClient {
 
   constructor(options: WorkerClientOptions) {
     this.stateDir = options.stateDir; this.config = options.config; this.suppliedConfig=options.config; this.suppliedReport=options.report;
-    this.state = new WorkerState(`${options.stateDir}/worker.db`); this.configController = options.configController;this.nativeAudit=options.nativeAudit;
+    this.state = new WorkerState(`${options.stateDir}/worker.db`); this.configController = options.configController;this.nativeAudit=options.nativeAudit;this.serviceReports=options.serviceReports;
     this.unsubscribeConfig=this.configController?.onApplied(config=>{if(this.config){this.config={...this.config,name:config.name,capacity:config.capacity,agent_paths:config.agent_paths,maintenance_roots:config.maintenance_roots,codex_sandbox:config.codex_sandbox,development_roots:config.development_policy.mode==='home'?undefined:config.development_policy.mode==='custom'?[...config.development_policy.roots]:[]};}});
     this.wsFactory = options.wsFactory ?? (url => new WebSocket(url,{maxPayload:MAX_WIRE_BYTES}));
     this.reconnectMinMs = options.reconnectMinMs ?? 1000; this.reconnectMaxMs = options.reconnectMaxMs ?? 30000;
@@ -230,9 +232,8 @@ export class WorkerClient {
   private describeServices():DeviceServiceReport[] {
     const services:DeviceServiceReport[]=[];
     if(this.development)services.push(this.development.describe());
-    if(this.maintenance)services.push(this.maintenance.describe?.()??{id:'maintenance',type:'maintenance',version:'1',agent_id:'codex',status:'ready',reason:null,features:['git']});
-    if(this.onAssistantEngineRequest)services.push({id:'assistant-engine',type:'assistant_engine',version:'1',agent_id:'codex',status:'ready',reason:null,features:['session_resume','turn_status','turn_interrupt','interaction_response','structured_events','attachments','task_operations','delivery','core_agent_runtime']});
-    if(this.onOffer&&this.onStart)services.push({id:'task-execution',type:'task_execution',version:'1',agent_id:'codex',status:'ready',reason:null,features:['task_scope','live_progress']});
+    if(this.maintenance?.describe)services.push(this.maintenance.describe());
+    if(this.serviceReports)services.push(...this.serviceReports());
     return services;
   }
   private async refreshReport():Promise<void>{

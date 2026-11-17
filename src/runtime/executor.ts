@@ -7,7 +7,7 @@ import type {CodexSandboxMode} from '../protocol/index.js';
 import {DevelopmentRootPolicy} from '../development/root-policy.js';
 import { runCodex, type CodexResult } from './codex.js';
 import { WorkerState } from './state.js';
-import type { Assignment, ExecutionResult, WorkerEvent, AgentId } from '../protocol/index.js';
+import type { Assignment, ExecutionResult, WorkerEvent, AgentId, DeviceServiceReport } from '../protocol/index.js';
 import { redact } from '../shared/security.js';
 import {budgetDeadline,scheduleDeadline} from '../shared/budgets.js';
 import { prepareWorkspace, collectOutputFiles, MAX_ARCHIVE_ENTRIES } from './files.js';
@@ -39,6 +39,7 @@ export class Executor {
  private readonly checkpoints:CheckpointStore;
  readonly delivery:WorkerDeliveryService;
  constructor(options:ExecutorOptions){this.taskWorkspace=options.taskWorkspace??runTaskWorkspace;this.codexPermissions=options.codexPermissions;this.state=options.state;this.stateDir=options.stateDir;this.emit=options.emit;this.emitLive=options.emitLive??(()=>undefined);this.agents={codex:runCodex,opencode:runOpenCode,...options.agents};this.agentPaths={...options.agentPaths};this.gitSshCommand=options.gitSshCommand;this.rootPolicy=options.rootPolicy??new DevelopmentRootPolicy({roots:options.developmentRoots});this.leaseGraceMs=options.leaseGraceMs??2000;this.checkpoints=options.checkpoints??new CheckpointStore(this.state.db);this.delivery=options.delivery??new WorkerDeliveryService({state:this.state,checkpoints:this.checkpoints,stateDir:this.stateDir,isExecutionActive:id=>this.state.activeAttemptIds().includes(id)});}
+  describe():DeviceServiceReport { const agent=this.agentPaths.codex?'codex':this.agentPaths.opencode?'opencode':null; return {id:'task-execution',type:'task_execution',version:'1',agent_id:agent,status:agent?'ready':'unavailable',reason:agent?null:'agent_not_detected',features:agent?['task_scope','live_progress']:[]}; }
  async runAttempt(assignment:Assignment,leaseMs:number):Promise<ExecutionResult>{
   const existing=this.completions.get(assignment.attempt_id);if(existing)return existing;
   const promise=this.execute(assignment,leaseMs);this.completions.set(assignment.attempt_id,promise);try{return await promise;}finally{this.completions.delete(assignment.attempt_id);}

@@ -33,13 +33,14 @@ export async function runComputerDaemon(options: { paths: ComputerPaths }): Prom
   const maintenance=runtimeMaintenance(options.paths.state,configController);
   const ssh=gitSshCommand(options.paths.state);const codebasePreparation=createCodebasePreparation(options.paths.state,rootPolicy,ssh);
   let codexEngine!:ReturnType<typeof attachAssistantEngine>;
-  client = new WorkerClient({ stateDir: options.paths.state, configController, development, codebasePreparation, nativeAudit:()=>codexEngine.audit(), ...(maintenance?{maintenance}:{}) });
+  let executor!:Executor;
+  client = new WorkerClient({ stateDir: options.paths.state, configController, development, codebasePreparation, nativeAudit:()=>codexEngine.audit(), serviceReports:()=>[codexEngine?.describe(),executor?.describe(),maintenance?.describe?.()].filter((value):value is import('../protocol/index.js').DeviceServiceReport=>Boolean(value)), ...(maintenance?{maintenance}:{}) });
   codexEngine=attachAssistantEngine({client,stateDir:options.paths.state,workerId:config.worker_id,executable:agentPaths.codex,rootPolicy,gitSshCommand:ssh,sandboxMode:()=>codexPermissions.mode()});
   const checkpoints=new CheckpointStore(client.state.db);
   const delivery=new WorkerDeliveryService({state:client.state,checkpoints,stateDir:options.paths.state,isExecutionActive:id=>client.state.activeAttemptIds().includes(id)});
   for(const item of client.state.recoverInterrupted())client.state.appendEvent({type:'event',attempt_id:item.attemptId,lease_epoch:item.leaseEpoch,sequence:client.state.nextSequence(item.attemptId),event:{type:'unknown',reason:'Worker restarted without verified completion'}});
   const gitHelper = await startGitCredentialServer(options.paths.state);
-  const executor = new Executor({
+  executor = new Executor({
     codexPermissions, gitSshCommand: ssh,
     state: client.state,
     stateDir: options.paths.state,
