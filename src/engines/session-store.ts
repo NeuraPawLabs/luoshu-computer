@@ -37,7 +37,7 @@ export class CodexSessionStore {
    CREATE TABLE IF NOT EXISTS codex_closed_bindings(session_key TEXT PRIMARY KEY,binding_json TEXT NOT NULL,closed_at INTEGER);
    CREATE TABLE IF NOT EXISTS codex_session_unsubscriptions(session_key TEXT PRIMARY KEY REFERENCES codex_closed_bindings(session_key),binding_json TEXT NOT NULL,thread_id TEXT,completed_at INTEGER NOT NULL);`);
  }
- session(key:string):SessionRow|undefined{return this.db.prepare('SELECT * FROM codex_native_sessions WHERE session_key=?').get(key) as SessionRow|undefined;}
+ session(key:string):SessionRow|undefined{return this.db.prepare('SELECT session_key,binding_json,developer_instructions,policy_json,thread_id AS native_thread_id,session_tree_id,cwd,native_status,created_at,updated_at FROM codex_native_sessions WHERE session_key=?').get(key) as SessionRow|undefined;}
  binding(key:string):CodexBinding{const row=this.session(key);if(!row)throw Error('Codex session binding not found');return JSON.parse(row.binding_json);}
  ensure(binding:CodexBinding,key:string,cwd:string,instructions?:string):SessionRow{
   this.assertSessionOpen(key);
@@ -58,7 +58,7 @@ export class CodexSessionStore {
   })();
  }
  unsubscribed(key:string):boolean{
-  const receipt=this.db.prepare('SELECT binding_json,thread_id FROM codex_session_unsubscriptions WHERE session_key=?').get(key) as {binding_json:string;native_thread_id:string|null}|undefined;
+  const receipt=this.db.prepare('SELECT binding_json,thread_id AS native_thread_id FROM codex_session_unsubscriptions WHERE session_key=?').get(key) as {binding_json:string;native_thread_id:string|null}|undefined;
   if(!receipt)return false;
   const revoked=this.closedBinding(key),session=this.session(key);
   if(!revoked||revoked.binding_json!==receipt.binding_json||session&&session.binding_json!==receipt.binding_json||receipt.native_thread_id!==(session?.native_thread_id??null))throw Error('Native unsubscribe receipt binding or thread changed');
@@ -91,8 +91,8 @@ export class CodexSessionStore {
    this.db.prepare('UPDATE codex_closed_bindings SET closed_at=? WHERE session_key=?').run(Date.now(),key);
   })();
  }
- submission(id:string):SubmissionRow|undefined{return this.db.prepare('SELECT * FROM codex_native_submissions WHERE submission_id=?').get(id) as SubmissionRow|undefined;}
- active(key:string):SubmissionRow|undefined{return this.db.prepare("SELECT * FROM codex_native_submissions WHERE session_key=? AND status IN ('prepared','starting','running','stopping','unknown')").get(key) as SubmissionRow|undefined;}
+ submission(id:string):SubmissionRow|undefined{return this.db.prepare('SELECT submission_id,session_key,input_sha256,thread_id AS native_thread_id,turn_id,status,created_at,updated_at FROM codex_native_submissions WHERE submission_id=?').get(id) as SubmissionRow|undefined;}
+ active(key:string):SubmissionRow|undefined{return this.db.prepare("SELECT submission_id,session_key,input_sha256,thread_id AS native_thread_id,turn_id,status,created_at,updated_at FROM codex_native_submissions WHERE session_key=? AND status IN ('prepared','starting','running','stopping','unknown')").get(key) as SubmissionRow|undefined;}
  activeCount():number{return(this.db.prepare("SELECT COUNT(*) AS n FROM codex_native_submissions WHERE status IN ('prepared','starting','running','stopping','unknown')").get() as {n:number}).n;}
  canUnload(ignoreRevoked=false):boolean{
   if(this.activeCount())return false;
@@ -146,7 +146,7 @@ export class CodexSessionStore {
   })();
  }
  submissionPolicy(id:string):{native_thread_id:string;policy:NativePolicy}|null{
-  const row=this.db.prepare('SELECT thread_id,policy_json FROM codex_native_submission_policies WHERE submission_id=?').get(id) as {native_thread_id:string;policy_json:string}|undefined;
+  const row=this.db.prepare('SELECT thread_id AS native_thread_id,policy_json FROM codex_native_submission_policies WHERE submission_id=?').get(id) as {native_thread_id:string;policy_json:string}|undefined;
   return row?{native_thread_id:row.native_thread_id,policy:JSON.parse(row.policy_json)}:null;
  }
  acknowledge(id:string,threadId:string,turnId:string):void{
@@ -159,7 +159,7 @@ export class CodexSessionStore {
  }
  unknown(id:string):void{this.db.prepare("UPDATE codex_native_submissions SET status='unknown',updated_at=? WHERE submission_id=? AND status IN ('prepared','starting','running','stopping')").run(Date.now(),id);}
  settle(key:string,threadId:string,turnId:string,status:'completed'|'failed'|'cancelled'):void{
-  const row=this.db.prepare('SELECT * FROM codex_native_submissions WHERE session_key=? AND thread_id=? AND turn_id=?').get(key,threadId,turnId) as SubmissionRow|undefined;
+  const row=this.db.prepare('SELECT submission_id,session_key,input_sha256,thread_id AS native_thread_id,turn_id,status,created_at,updated_at FROM codex_native_submissions WHERE session_key=? AND thread_id=? AND turn_id=?').get(key,threadId,turnId) as SubmissionRow|undefined;
   if(!row||!terminal.has(status))throw Error('Codex terminal native identity mismatch');
   if(terminal.has(row.status)){if(row.status!==status)throw Error('Codex terminal result conflicts');return;}
   this.db.prepare('UPDATE codex_native_submissions SET status=?,updated_at=? WHERE submission_id=?').run(status,Date.now(),row.submission_id);
