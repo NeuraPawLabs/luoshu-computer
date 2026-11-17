@@ -32,7 +32,7 @@ test('reads saved Codex conversation without tools, internal instructions, or du
     message('assistant', '之前的回复'), '{unfinished',
   ].join('\n'));
   const result = await sessions.history('codex', root, 'native-1');
-  expect(result).toEqual({ action: 'history', agent: 'codex', path: root, session_id: 'native-1', text: '用户\n之前的请求\n\nCodex\n之前的回复\n\n', truncated: false });
+  expect(result).toEqual({ action: 'history', agent: 'codex', path: root, engine_session_id: 'native-1', text: '用户\n之前的请求\n\nCodex\n之前的回复\n\n', truncated: false });
   expect(developmentResultSchema.safeParse(result).success).toBe(true);
   await expect(sessions.history('codex', '/other', 'native-1')).rejects.toThrow(/session/i);
   await expect(sessions.history('codex', root, 'missing')).rejects.toThrow(/session/i);
@@ -50,7 +50,7 @@ test('reads OpenCode text parts in conversation order and scopes them to the sav
   part.run('p1', 'm1', 'ses-1', 1, JSON.stringify({ type: 'text', text: '检查改动' }));
   part.run('p3', 'm2', 'ses-1', 3, JSON.stringify({ type: 'reasoning', text: 'hidden reasoning' }));
   db.close();
-  expect(await sessions.history('opencode', root, 'ses-1')).toEqual({ action: 'history', agent: 'opencode', path: root, session_id: 'ses-1', text: '用户\n检查改动\n\nOpenCode\nOpenCode 回复\n\n', truncated: false });
+  expect(await sessions.history('opencode', root, 'ses-1')).toEqual({ action: 'history', agent: 'opencode', path: root, engine_session_id: 'ses-1', text: '用户\n检查改动\n\nOpenCode\nOpenCode 回复\n\n', truncated: false });
   await expect(sessions.history('opencode', '/other', 'ses-1')).rejects.toThrow(/session/i);
 });
 
@@ -70,7 +70,7 @@ test('history commands enforce allowed roots without consuming a development slo
   const { root, codexHome, opencodeDataDir, rollout } = await fixture();
   await writeFile(rollout, message('assistant', '已保存的回复'));
   const service = new DevelopmentService({ roots: [root], codexHome, opencodeDataDir, maxSessions: 0 });
-  await expect(service.handle({ action: 'history', agent: 'codex', path: root, session_id: 'native-1' })).resolves.toMatchObject({ text: 'Codex\n已保存的回复\n\n' });
+  await expect(service.handle({ action: 'history', agent: 'codex', path: root, engine_session_id: 'native-1' })).resolves.toMatchObject({ text: 'Codex\n已保存的回复\n\n' });
   expect(service.active()).toBe(0);
-  await expect(service.handle({ action: 'history', agent: 'codex', path: '/outside', session_id: 'native-1' })).rejects.toThrow(/outside an allowed root/);
+  await expect(service.handle({ action: 'history', agent: 'codex', path: '/outside', engine_session_id: 'native-1' })).rejects.toThrow(/outside an allowed root/);
 });
