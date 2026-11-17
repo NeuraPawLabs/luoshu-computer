@@ -45,7 +45,7 @@ test('invalid paths and failed persistence retain policy; changing policy blocks
 
 test('live roots update persists without restart and stops only the confirmed PTY',async()=>{
  const {root,a,b}=await fixture(),stateDir=join(root,'state');await mkdir(stateDir);
- const config={worker_id:'worker-1',url:'https://example.test',name:'test',capacity:2,development_roots:[a]};
+ const config={worker_id:'worker-1',url:'https://example.test',name:'test',capacity:2,development_roots:[a],maintenance_roots:[a]};
  await saveWorkerConfig(stateDir,config);
  const policy=runtimeDevelopmentRoots(stateDir,config),agent=join(root,'agent');
  await writeFile(agent,'#!/usr/bin/env node\nprocess.stdin.resume();process.stdout.write("ready");\n',{mode:0o755});
