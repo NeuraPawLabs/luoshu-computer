@@ -53,12 +53,12 @@ test('live roots update persists without restart and stops only the confirmed PT
  const open=async(id:string,cwd:string)=>service.handle({action:'open',session_id:id,agent:'codex',mode:'new',cwd,cols:80,rows:24});
  try{
   await expect(open('denied',b)).rejects.toThrow(/allowed/);
-  await service.handle({action:'roots_update',roots:[a,b],revision:randomUUID(),stop_ids:[]});
+  await policy.update([a,b],randomUUID(),[]);
   await open('first',a);await open('second',b);
-  const revision=randomUUID(),blocked=await service.handle({action:'roots_update',roots:[b],revision,stop_ids:[]});
+  const revision=randomUUID(),blocked=await policy.update([b],revision,[]);
   expect(blocked).toMatchObject({status:'blocked',blockers:[{id:'session:first',path:a}]});
   expect(service.sessions.read('first',0).session.status).toBe('running');
-  await service.handle({action:'roots_update',roots:[b],revision,stop_ids:['session:first']});
+  await policy.update([b],revision,['session:first']);
   expect(service.sessions.read('first',0).session.status).toBe('exited');
   expect(service.sessions.read('second',0).session.status).toBe('running');
   expect(await service.handle({action:'roots'})).toEqual({action:'roots',roots:[b]});

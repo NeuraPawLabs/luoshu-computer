@@ -3,7 +3,7 @@ import {CodexAppServerPool} from './codex-pool.js';
 import {CodexSessionStore} from './session-store.js';
 import {CodexEngineService} from './service.js';
 import type {CodexAppServerClient} from './codex-rpc.js';
-import type {CodexSandboxMode} from '../protocol/index.js';
+import type {CodexSandboxMode,DeviceServiceReport} from '../protocol/index.js';
 import {NativeRunFiles} from './native-files.js';
 import {NativeCodebases} from './native-codebases.js';
 import type {DevelopmentRootPolicy} from '../development/root-policy.js';
@@ -27,7 +27,7 @@ export function attachAssistantEngine(options:{client:WorkerClient;stateDir:stri
   capacity:()=>client.executionCapacity,otherActiveCount:()=>client.executionLoad('native'),
   emit:event=>{
    const connection=client.assistantEngineConnection;
-   if(!connection.authenticated||connection.generation!==event.worker_generation)throw Error('Native event connection authority expired');
+   if(!connection.authenticated||connection.generation!==((event as any).worker_generation ?? event.connection_generation))throw Error('Native event connection authority expired');
    return client.send(event);
   },
  });
@@ -36,5 +36,5 @@ export function attachAssistantEngine(options:{client:WorkerClient;stateDir:stri
  const unloadIdle=()=>service.releaseIdle();
  client.onAssistantEngineDisconnected=()=>service.disconnect();
  let closing:Promise<void>|undefined;
- return{service,store,unloadIdle,audit:()=>pool.audit(options.workerId),applyConfig(config:{agent_paths?:Partial<Record<'codex'|'opencode',string>>}){pool.setExecutable(config.agent_paths?.codex);},close(){if(closing)return closing;closed=true;closing=(async()=>{await service.close();await pool.close();client.onAssistantEngineRequest=undefined;client.onAssistantEngineDisconnected=undefined;})();return closing;}};
+ return{service,store,unloadIdle,audit:()=>pool.audit(options.workerId),describe:():DeviceServiceReport=>({id:'assistant-engine',type:'assistant_engine',version:'1',agent_id:'codex',status:closed||!options.executable?'unavailable':'ready',reason:closed?'engine_closed':!options.executable?'agent_not_detected':null,features:['session_resume','turn_status','turn_interrupt','interaction_response','structured_events','attachments','task_operations','delivery','core_agent_runtime']}),applyConfig(config:{agent_paths?:Partial<Record<'codex'|'opencode',string>>}){pool.setExecutable(config.agent_paths?.codex);},close(){if(closing)return closing;closed=true;closing=(async()=>{await service.close();await pool.close();client.onAssistantEngineRequest=undefined;client.onAssistantEngineDisconnected=undefined;})();return closing;}};
 }

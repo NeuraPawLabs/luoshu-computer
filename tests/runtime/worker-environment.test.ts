@@ -5,21 +5,23 @@ import { describe, expect, test } from 'vitest';
 import { agentEnvironmentPath, buildEnvironmentReport, createIdentity, saveWorkerConfig, loadWorkerConfig, resolveAgentPaths } from '../../src/runtime/environment.js';
 
 describe('worker environment and identity', () => {
-  test('reports only allowlisted tool versions', async () => {
+  test('reports typed software, Agents and services without local authority flags', async () => {
     const report = await buildEnvironmentReport({
       name: 'desk', capacity: 2,
       probe: async (tool) => ({ git: 'git version 2.45.1', node: 'v22.4.0', codex: 'codex-cli 0.154.0' })[tool],
+      services:[{id:'development',type:'development',version:'1',agent_id:null,status:'ready',reason:null,features:['browse','repository','native_history','terminal','codebase_preparation']}],
     });
-    expect(report).toMatchObject({ name: 'desk', capacity: 2, revision: 1, tools: { node: '22.4.0', codex: '0.154.0' }, protocol_version: 8 });
-    expect(JSON.stringify(report)).not.toContain('process.env');
+    expect(report).toMatchObject({platform:{computer_version:expect.any(String)},protocol_version:9,report_revision:1});expect(report.agents).toEqual(expect.arrayContaining([{id:'codex',version:'0.154.0',detected:true}]));
+    expect(report.software).toEqual(expect.arrayContaining([{id:'git',version:'2.45.1',detected:true},{id:'node',version:'22.4.0',detected:true}]));
+    expect(JSON.stringify(report)).not.toContain('luoshu.');
   });
 
-  test('does not claim Git and reports detected agents without local authorization', async () => {
+  test('does not claim Git or unavailable Agents and keeps unknown capability data out of reports', async () => {
     const report=await buildEnvironmentReport({name:'desk',capacity:1,probe:async tool=>({node:'v22.1.0',opencode:'opencode 1.2.3'} as Record<string,string>)[tool]});
-    expect(report.tools).toEqual({node:'22.1.0',opencode:'1.2.3'});
-    expect(report).not.toHaveProperty('capabilities');
-    expect(report.agents).toEqual([{id:'codex',detected:false},{id:'opencode',version:'1.2.3',detected:true}]);
-    expect(report.protocol_version).toBe(8);
+    expect(report.software).toEqual(expect.arrayContaining([{id:'node',version:'22.1.0',detected:true},{id:'opencode',version:'1.2.3',detected:true}]));
+    expect(report.agents).toEqual([{id:'codex',version:null,detected:false},{id:'opencode',version:'1.2.3',detected:true}]);
+    expect(report.protocol_version).toBe(9);
+    expect(report.services).toEqual([]);
   });
 
   test('persists private identity and policy config with owner-only mode', async () => {

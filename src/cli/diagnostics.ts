@@ -1,20 +1,20 @@
 import { readFile, rm, unlink } from 'node:fs/promises';
-import type { WorkerReport } from '../protocol/index.js';
+import type { DeviceObservation } from '../protocol/index.js';
 import type { ComputerPaths } from './paths.js';
 import { COMPUTER_VERSION } from './version.js';
 import { execFile } from 'node:child_process';
 
-export interface ComputerStatus { version: string; service: string; server?: string; worker_id?: string; agents: WorkerReport['agents']; assistant_engines?: WorkerReport['assistant_engines'] }
+export interface ComputerStatus { version: string; service: string; server?: string; worker_id?: string; agents: DeviceObservation['agents']; assistant_engines?: DeviceObservation['services'] }
 export interface DoctorCheck { id: 'config' | 'permissions' | 'service' | 'core' | 'agents'; status: 'ok' | 'warn' | 'error'; message: string }
 type Config = { worker_id: string; url: string; name: string; capacity: number };
 
-export async function computerStatus(options: { paths: ComputerPaths; readConfig?: () => Promise<Config>; report?: WorkerReport }): Promise<ComputerStatus> {
+export async function computerStatus(options: { paths: ComputerPaths; readConfig?: () => Promise<Config>; report?: DeviceObservation }): Promise<ComputerStatus> {
   const read = options.readConfig ?? (async () => JSON.parse(await readFile(`${options.paths.state}/config.json`, 'utf8')) as Config);
   const config = await read();
-  return { version: options.report?.computer_version ?? COMPUTER_VERSION, service: 'luoshu-computer.service', server: config.url, worker_id: config.worker_id, agents: options.report?.agents ?? [], assistant_engines: options.report?.assistant_engines ?? [] };
+  return { version: options.report?.platform.computer_version ?? COMPUTER_VERSION, service: 'luoshu-computer.service', server: config.url, worker_id: config.worker_id, agents: options.report?.agents ?? [], assistant_engines: options.report?.services.filter(service => service.type==='assistant_engine') ?? [] };
 }
 
-export async function computerDoctor(options: { paths: ComputerPaths; serviceState?: 'running' | 'missing'; fetchImpl?: typeof fetch; probe?: () => Promise<string | undefined>; report?: WorkerReport }): Promise<DoctorCheck[]> {
+export async function computerDoctor(options: { paths: ComputerPaths; serviceState?: 'running' | 'missing'; fetchImpl?: typeof fetch; probe?: () => Promise<string | undefined>; report?: DeviceObservation }): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
   let serviceState = options.serviceState;
   if (!serviceState) serviceState = await new Promise<'running' | 'missing'>(resolve => execFile('systemctl', ['--user', 'is-active', 'luoshu-computer.service'], error => resolve(error ? 'missing' : 'running')));
