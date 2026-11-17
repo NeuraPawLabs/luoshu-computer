@@ -17,7 +17,7 @@ test('status reads the product configuration without exposing a private key', as
   const status = await computerStatus({
     paths: { root: '/tmp/luoshu', state: '/tmp/luoshu/state', versions: '/tmp/luoshu/versions', current: '/tmp/luoshu/current', executable: '/tmp/bin/luoshu-computer', service: '/tmp/service' },
     readConfig: async () => ({ worker_id: 'worker_1', url: 'https://luoshu.test', name: 'desk', capacity: 1 }),
-    report: { name: 'desk', os: 'linux', arch: 'x64', tools: {}, agents: [], capacity: 1, revision: 1, protocol_version: 8, computer_version: '0.1.1' },
+    report:{protocol_version:9,report_revision:1,platform:{os:'linux',arch:'x64',computer_version:'0.1.1'},software:[],agents:[],services:[],git_credentials:[]},
   });
   expect(status).toEqual(expect.objectContaining({ version: '0.1.1', worker_id: 'worker_1', server: 'https://luoshu.test', assistant_engines: [] }));
   expect(JSON.stringify(status)).not.toContain('private');
@@ -27,7 +27,7 @@ test('doctor reports Agents from the current environment report', async () => {
   const checks = await computerDoctor({
     paths: { root: '/tmp/luoshu', state: '/tmp/luoshu/state', versions: '/tmp/luoshu/versions', current: '/tmp/luoshu/current', executable: '/tmp/bin/luoshu-computer', service: '/tmp/service' },
     serviceState: 'running', fetchImpl: async () => new Response('', { status: 200 }),
-    report: { name: 'desk', os: 'linux', arch: 'x64', tools: { codex: '1.2.3' }, agents: [{ id: 'codex', version: '1.2.3', detected: true }, { id: 'opencode', detected: false }], capacity: 1, revision: 1, protocol_version: 8, computer_version: '0.1.1' },
+    report:{protocol_version:9,report_revision:1,platform:{os:'linux',arch:'x64',computer_version:'0.1.1'},software:[{id:'codex',version:'1.2.3',detected:true}],agents:[{id:'codex',version:'1.2.3',detected:true},{id:'opencode',version:null,detected:false}],services:[],git_credentials:[]},
   });
   expect(checks).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'agents', status: 'ok', message: '至少检测到一个 Agent' })]));
 });
