@@ -13,7 +13,7 @@ export const nativeCheckOperationSchema=z.discriminatedUnion('action',[
  z.object({action:z.literal('end'),check_id:id}).strict(),
 ]);
 export type NativeCheckOperation=z.infer<typeof nativeCheckOperationSchema>;
-export const nativeCheckReceiptSchema=z.object({check_id:id,thread_id:id,turn_id:id,purpose:z.string().min(1).max(2000),command_ids:z.array(id).refine(ids=>new Set(ids).size===ids.length,'Duplicate check command'),before:nativeCheckTargetsSchema,after:nativeCheckTargetsSchema,status:z.enum(['passed','failed','invalidated'])}).strict().refine(r=>r.status!=='passed'||r.command_ids.length>0&&sameCheckTargets(r.before,r.after),'Passed check must have commands and unchanged content');
+export const nativeCheckReceiptSchema=z.object({check_id:id,native_thread_id:id,turn_id:id,purpose:z.string().min(1).max(2000),command_ids:z.array(id).refine(ids=>new Set(ids).size===ids.length,'Duplicate check command'),before:nativeCheckTargetsSchema,after:nativeCheckTargetsSchema,status:z.enum(['passed','failed','invalidated'])}).strict().refine(r=>r.status!=='passed'||r.command_ids.length>0&&sameCheckTargets(r.before,r.after),'Passed check must have commands and unchanged content');
 export type NativeCheckReceipt=z.infer<typeof nativeCheckReceiptSchema>;
 export const nativeDeliveredCheckSchema=nativeCheckReceiptSchema.safeExtend({binding:z.enum(['current','changed'])});
 export type NativeDeliveredCheck=z.infer<typeof nativeDeliveredCheckSchema>;

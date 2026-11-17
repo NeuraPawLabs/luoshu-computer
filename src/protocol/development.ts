@@ -16,39 +16,13 @@ export type CodexSandboxMode = z.infer<typeof codexSandboxModeSchema>;
 export const codexSettingsStateSchema = z.object({mode:codexSandboxModeSchema, revision:z.string().max(100)}).strict();
 export type CodexSettingsState = z.infer<typeof codexSettingsStateSchema>;
 
-const agentPathSchema = z.string().min(1).max(4096).startsWith('/').refine(value => !/[\x00-\x1f\x7f]/.test(value));
-export const workerMutableConfigSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  capacity: z.number().int().min(1).max(16),
-  agent_paths: z.object({ codex: agentPathSchema.optional(), opencode: agentPathSchema.optional() }).strict(),
-  development_roots: developmentRootsSchema,
-  maintenance_roots: z.array(agentPathSchema).max(32),
-  codex_sandbox: codexSandboxModeSchema,
-}).strict();
-export type WorkerMutableConfig = z.infer<typeof workerMutableConfigSchema>;
-export const workerConfigRequestSchema = z.object({
-  type: z.literal('worker_config_request'), request_id: idSchema, revision: z.string().uuid(), expected_revision:z.string().min(1).max(100), config: workerMutableConfigSchema,
-}).strict();
-export const workerConfigReadSchema=z.object({type:z.literal('worker_config_read'),request_id:idSchema}).strict();
-export const workerConfigStateSchema=z.object({type:z.literal('worker_config_state'),request_id:idSchema,revision:z.string().min(1).max(100),request_revision:z.string().uuid().nullable(),config:workerMutableConfigSchema}).strict();
-export type WorkerConfigState=z.infer<typeof workerConfigStateSchema>;
-export const workerConfigResponseSchema = z.object({
-  type: z.literal('worker_config_response'), request_id: idSchema, revision: z.string().uuid(),
-  status: z.enum(['applied','failed']), applied_revision:z.string().min(1).max(100), config: workerMutableConfigSchema, error: z.string().max(2000).optional(),
-}).strict().superRefine((value, ctx) => {
-  if (value.status === 'failed' && !value.error) ctx.addIssue({ code: 'custom', path: ['error'], message: 'Failed configuration requires an error' });
-  if (value.status === 'applied' && value.error) ctx.addIssue({ code: 'custom', path: ['error'], message: 'Applied configuration cannot include an error' });
-});
-export type WorkerConfigRequest = z.infer<typeof workerConfigRequestSchema>;
-export type WorkerConfigResponse = z.infer<typeof workerConfigResponseSchema>;
-
 export const developmentSessionSchema = z.object({
   id: sessionId,
   agent: agentIdSchema,
   cwd: pathValue,
   mode: z.enum(['new', 'resume']),
   status: z.enum(['running', 'exited']),
-  agent_session_id: sessionId.optional(),
+  engine_session_id: sessionId.optional(),
   exit_code: z.number().int().optional(),
   reason: z.string().max(2000).optional(),
 }).strict();
@@ -69,21 +43,19 @@ export type DevelopmentActiveSession = z.infer<typeof developmentActiveSessionSc
 
 const openCommandSchema = z.object({
   action: z.literal('open'), session_id: sessionId, agent: agentIdSchema,
-  agent_session_id: sessionId.optional(), cwd: pathValue, mode: z.enum(['new', 'resume']), cols: dimensions, rows: dimensions,
+  engine_session_id: sessionId.optional(), cwd: pathValue, mode: z.enum(['new', 'resume']), cols: dimensions, rows: dimensions,
 }).strict().superRefine((value, context) => {
-  if (value.mode === 'resume' && !value.agent_session_id) context.addIssue({ code: 'custom', path: ['agent_session_id'], message: 'A native Agent session is required to resume' });
+  if (value.mode === 'resume' && !value.engine_session_id) context.addIssue({ code: 'custom', path: ['engine_session_id'], message: 'A native Agent session is required to resume' });
 });
 
 export const developmentCommandSchema = z.discriminatedUnion('action', [
   z.object({action:z.literal('codex_settings')}).strict(),
-  z.object({action:z.literal('codex_settings_update'),mode:codexSandboxModeSchema,expected_revision:z.string().max(100)}).strict(),
   z.object({ action: z.literal('roots') }).strict(),
   z.object({ action: z.literal('roots_state') }).strict(),
-  z.object({ action: z.literal('roots_update'), roots: developmentRootsSchema, revision: z.string().uuid(), stop_ids: z.array(z.string().min(1).max(200)).max(100).default([]) }).strict(),
   z.object({ action: z.literal('list'), path: pathValue }).strict(),
   z.object({ action: z.literal('repository'), path: pathValue }).strict(),
   z.object({ action: z.literal('sessions'), path: pathValue }).strict(),
-  z.object({ action: z.literal('history'), path: pathValue, agent: agentIdSchema, session_id: sessionId }).strict(),
+  z.object({ action: z.literal('history'), path: pathValue, agent: agentIdSchema, engine_session_id: sessionId }).strict(),
   z.object({ action: z.literal('active_sessions') }).strict(),
   z.object({ action: z.literal('preview'), path: pathValue }).strict(),
   openCommandSchema,
@@ -97,14 +69,12 @@ export type DevelopmentCommand = z.infer<typeof developmentCommandSchema>;
 
 export const developmentResultSchema = z.discriminatedUnion('action', [
   z.object({action:z.literal('codex_settings'),state:codexSettingsStateSchema}).strict(),
-  z.object({action:z.literal('codex_settings_update'),state:codexSettingsStateSchema}).strict(),
   z.object({ action: z.literal('roots'), roots: z.array(pathValue).max(32) }).strict(),
   z.object({ action: z.literal('roots_state'), state: developmentRootStateSchema }).strict(),
-  z.object({ action: z.literal('roots_update'), status: z.enum(['applied','blocked']), state: developmentRootStateSchema, blockers: z.array(developmentRootBlockerSchema).max(100) }).strict(),
   z.object({ action: z.literal('repository'), path: pathValue, repository_path: pathValue, root_path: z.string().min(1).max(500), default_branch: z.string().min(1).max(200) }).strict(),
   z.object({ action: z.literal('list'), path: pathValue, entries: z.array(z.object({ path: pathValue, name: z.string().min(1).max(255), kind: z.enum(['directory', 'file']) }).strict()).max(500), truncated: z.boolean() }).strict(),
   z.object({ action: z.literal('sessions'), path: pathValue, sessions: z.array(developmentAgentSessionSummarySchema).max(100), truncated: z.boolean() }).strict(),
-  z.object({ action: z.literal('history'), path: pathValue, agent: agentIdSchema, session_id: sessionId, text: z.string().max(256 * 1024), truncated: z.boolean() }).strict(),
+  z.object({ action: z.literal('history'), path: pathValue, agent: agentIdSchema, engine_session_id: sessionId, text: z.string().max(256 * 1024), truncated: z.boolean() }).strict(),
   z.object({ action: z.literal('active_sessions'), sessions: z.array(developmentActiveSessionSchema).max(100), truncated: z.boolean() }).strict(),
   z.object({ action: z.literal('preview'), path: pathValue, text: z.string().max(256 * 1024), truncated: z.boolean() }).strict(),
   z.object({ action: z.literal('open'), session: developmentSessionSchema }).strict(),

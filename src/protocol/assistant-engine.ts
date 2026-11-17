@@ -11,7 +11,7 @@ export const agentEngineConfigSchema = z.discriminatedUnion('kind', [
   }).strict(),
   z.object({
     kind: z.literal('device'),
-    worker_id: idSchema,
+    device_id: idSchema,
     agent: z.literal('codex'),
     adapter_version: z.literal(1),
   }).strict(),

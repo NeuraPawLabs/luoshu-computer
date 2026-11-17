@@ -11,17 +11,17 @@ import {codebasePrepareResultSchema} from './execution.js';
 
 const requestId=idSchema;
 const text=z.string().max(64_000);
-const control={request_id:requestId,session_id:idSchema,submission_id:idSchema,run_id:idSchema,authorization_revision:positive};
+const control={request_id:requestId,engine_session_id:idSchema,submission_id:idSchema,run_id:idSchema,authorization_revision:positive};
 const lease=z.number().int().min(1).max(120000);
 export const engineNativeResultSchema=z.object({status:z.enum(['completed','failed','cancelled']),replies:z.array(engineEventPayloadSchema.options[1]),reason:z.string().nullable()}).strict();
 export const engineWireRequestSchema=z.discriminatedUnion('action',[
- z.object({action:z.literal('session_close'),request_id:requestId,session_id:idSchema,binding:engineBindingSchema}).strict(),
- z.object({action:z.literal('session_prepare'),request_id:requestId,session_id:idSchema,binding:engineBindingSchema,workspace_id:idSchema,developer_instructions:z.string().max(64000).optional(),resources:z.object({run_id:idSchema,submission_id:idSchema}).strict().optional()}).strict(),
- z.object({action:z.literal('workspace_prepare'),request_id:requestId,submission:engineSubmissionSchema.refine(s=>Boolean(s.codebases?.length),'Native Codebase source specs required'),workspace_id:idSchema,developer_instructions:z.string().max(64000).optional(),input_files:taskFilesSchema,lease_ms:lease}).strict(),
+ z.object({action:z.literal('session_close'),request_id:requestId,engine_session_id:idSchema,binding:engineBindingSchema}).strict(),
+ z.object({action:z.literal('session_prepare'),request_id:requestId,engine_session_id:idSchema,binding:engineBindingSchema,execution_workspace_id:idSchema,developer_instructions:z.string().max(64000).optional(),resources:z.object({run_id:idSchema,submission_id:idSchema}).strict().optional()}).strict(),
+ z.object({action:z.literal('workspace_prepare'),request_id:requestId,submission:engineSubmissionSchema.refine(s=>Boolean(s.codebases?.length),'Native Codebase source specs required'),execution_workspace_id:idSchema,developer_instructions:z.string().max(64000).optional(),input_files:taskFilesSchema,lease_ms:lease}).strict(),
  z.object({action:z.literal('workspace_cancel'),request_id:requestId,submission:engineSubmissionSchema.refine(s=>Boolean(s.codebases?.length),'Native Codebase source specs required')}).strict(),
  z.object({action:z.literal('workspace_inspect'),request_id:requestId,submission:engineSubmissionSchema.refine(s=>Boolean(s.codebases?.length),'Native Codebase source specs required')}).strict(),
  z.object({action:z.literal('workspace_renew'),request_id:requestId,submission:engineSubmissionSchema.refine(s=>Boolean(s.codebases?.length),'Native Codebase source specs required'),lease_ms:lease}).strict(),
- z.object({action:z.literal('session_inspect'),request_id:requestId,session_id:idSchema,binding:engineBindingSchema}).strict(),
+ z.object({action:z.literal('session_inspect'),request_id:requestId,engine_session_id:idSchema,binding:engineBindingSchema}).strict(),
  z.object({action:z.literal('submit'),request_id:requestId,submission:engineSubmissionSchema,input:z.array(z.object({type:z.literal('text'),text}).strict()).min(1).max(128),input_files:taskFilesSchema.optional(),lease_ms:lease}).strict(),
  z.object({action:z.literal('renew'),...control,lease_ms:lease}).strict(),
  z.object({action:z.literal('result'),...control}).strict(),
@@ -37,18 +37,18 @@ export const engineWireRequestSchema=z.discriminatedUnion('action',[
 export type EngineWireRequest=z.infer<typeof engineWireRequestSchema>;
 
 export const engineWireResponseSchema=z.discriminatedUnion('action',[
- z.object({action:z.literal('session_close'),request_id:requestId,session_id:idSchema,binding:engineBindingSchema,state:z.literal('closed')}).strict(),
+ z.object({action:z.literal('session_close'),request_id:requestId,engine_session_id:idSchema,binding:engineBindingSchema,state:z.literal('closed')}).strict(),
  z.object({action:z.literal('workspace_prepare'),...control,codebases:z.array(codebasePrepareResultSchema).min(1).max(32)}).strict(),
  z.object({action:z.literal('workspace_cancel'),...control,session_state:z.enum(['idle','creating','unknown','closed','missing']),native:nativeSessionRefSchema.nullable()}).strict(),
  z.object({action:z.literal('workspace_inspect'),...control,state:z.enum(['missing','open','submitted','cancelling','cancelled']),session_state:z.enum(['idle','creating','unknown','closed','missing']),native:nativeSessionRefSchema.nullable()}).strict(),
  z.object({action:z.literal('workspace_renew'),...control}).strict(),
- z.object({action:z.literal('session_prepare'),request_id:requestId,session_id:idSchema,native:nativeSessionRefSchema}).strict(),
- z.object({action:z.literal('session_inspect'),request_id:requestId,session_id:idSchema,binding:engineBindingSchema,state:z.enum(['idle','creating','unknown','closed','missing']),native:nativeSessionRefSchema.nullable()}).strict(),
- z.object({action:z.literal('submit'),request_id:requestId,session_id:idSchema,turn_id:z.string().min(1).max(200)}).strict(),
+ z.object({action:z.literal('session_prepare'),request_id:requestId,engine_session_id:idSchema,native:nativeSessionRefSchema}).strict(),
+ z.object({action:z.literal('session_inspect'),request_id:requestId,engine_session_id:idSchema,binding:engineBindingSchema,state:z.enum(['idle','creating','unknown','closed','missing']),native:nativeSessionRefSchema.nullable()}).strict(),
+ z.object({action:z.literal('submit'),request_id:requestId,engine_session_id:idSchema,turn_id:z.string().min(1).max(200)}).strict(),
  z.object({action:z.literal('renew'),...control}).strict(),
  z.object({action:z.literal('result'),...control,result:engineNativeResultSchema.nullable()}).strict(),
  z.object({action:z.literal('collect_result'),...control,delivery:nativeDeliverySchema}).strict(),
- z.object({action:z.literal('inspect'),...control,native:z.object({thread_id:z.string().min(1).max(200),turn_id:z.string().min(1).max(200).nullable()}).strict().nullable(),state:z.enum(['prepared','starting','running','stopping','unknown','completed','failed','cancelled']),attached:z.boolean(),event_sequence:z.number().int().nonnegative(),interactions:z.array(z.union([engineWaitingInputSchema,engineWaitingApprovalSchema])),interaction_outcomes:z.array(engineInteractionOutcomeSchema)}).strict(),
+ z.object({action:z.literal('inspect'),...control,native:z.object({native_thread_id:z.string().min(1).max(200),turn_id:z.string().min(1).max(200).nullable()}).strict().nullable(),state:z.enum(['prepared','starting','running','stopping','unknown','completed','failed','cancelled']),attached:z.boolean(),event_sequence:z.number().int().nonnegative(),interactions:z.array(z.union([engineWaitingInputSchema,engineWaitingApprovalSchema])),interaction_outcomes:z.array(engineInteractionOutcomeSchema)}).strict(),
  z.object({action:z.literal('interrupt'),...control,turn_id:z.string().min(1).max(200)}).strict(),
  z.object({action:z.literal('interaction_response'),...control,turn_id:z.string().min(1).max(200),interaction_id:z.string().min(1).max(200)}).strict(),
  z.object({action:z.literal('reconcile'),...control,status:z.enum(['idle','running','unknown'])}).strict(),
@@ -59,10 +59,10 @@ export const engineWireResponseSchema=z.discriminatedUnion('action',[
 export type EngineWireResponse=z.infer<typeof engineWireResponseSchema>;
 
 export const engineWireEventSchema=z.object({
- type:z.literal('assistant_engine_event'),event_id:idSchema,session_id:idSchema,worker_generation:positive,event_sequence:positive,
+ type:z.literal('assistant_engine_event'),event_id:idSchema,engine_session_id:idSchema,connection_generation:positive,event_sequence:positive,
  source:engineEventSourceSchema,event:engineEventPayloadSchema,
 }).strict().superRefine((value,ctx)=>{
- if(value.source.worker_id===null||value.source.worker_generation!==value.worker_generation||value.source.session_id!==value.session_id)ctx.addIssue({code:'custom',message:'Device event provenance mismatch'});
+ if(value.source.device_id===null||value.source.connection_generation!==value.connection_generation||value.source.engine_session_id!==value.engine_session_id)ctx.addIssue({code:'custom',message:'Device event provenance mismatch'});
 });
 export type EngineWireEvent=z.infer<typeof engineWireEventSchema>;
 

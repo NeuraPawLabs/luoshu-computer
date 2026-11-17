@@ -6,15 +6,15 @@ import {engineKnowledgeOperationSchema} from './project-knowledge.js';
 
 const nativeId = z.string().min(1).max(200);
 export const engineEventSourceSchema = z.object({
-  conversation_id: idSchema, agent_id: idSchema,
+  session_id: idSchema, agent_id: idSchema,
   actor_id: z.string().min(1).max(200),
-  session_id: idSchema, run_id: idSchema, submission_id: idSchema,
+  engine_session_id: idSchema, run_id: idSchema, submission_id: idSchema,
   authorization_revision: z.number().int().positive(),
-  worker_id: idSchema.nullable(),
-  worker_generation: z.number().int().positive().nullable(),
-  native: z.object({thread_id: nativeId, turn_id: nativeId, item_id: nativeId.nullable()}).strict().nullable(),
+  device_id: idSchema.nullable(),
+  connection_generation: z.number().int().positive().nullable(),
+  native: z.object({native_thread_id: nativeId, turn_id: nativeId, item_id: nativeId.nullable()}).strict().nullable(),
 }).strict().superRefine((value, ctx) => {
-  if ((value.worker_id === null) !== (value.worker_generation === null)) {
+  if ((value.device_id === null) !== (value.connection_generation === null)) {
     ctx.addIssue({code: 'custom', message: 'Worker identity and generation must be provided together'});
   }
 });

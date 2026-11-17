@@ -12,7 +12,7 @@ const builtin = {
   reasoning_effort: 'medium',
   thinking_budget_tokens: null,
 };
-const device = {kind: 'device', worker_id: 'worker_1', agent: 'codex', adapter_version: 1};
+const device = {kind: 'device', device_id: 'worker_1', agent: 'codex', adapter_version: 1};
 
 test('a device engine does not need a Core model connection', () => {
   expect(agentEngineConfigSchema.parse(device)).toEqual(device);
@@ -21,7 +21,7 @@ test('a device engine does not need a Core model connection', () => {
 
 test.each([
   {...device, model_id: 'unexpected'},
-  {...builtin, worker_id: 'worker_1'},
+  {...builtin, device_id: 'worker_1'},
   {...device, api_key: 'secret'},
   {...device, oauth_token: 'secret'},
   {...device, agent: 'opencode'},

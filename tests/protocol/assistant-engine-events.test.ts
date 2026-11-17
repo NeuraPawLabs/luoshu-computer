@@ -22,7 +22,7 @@ test('final answers are not constrained to the old Worker summary length', () =>
 
 test('events require complete origin and matched worker identity fields', () => {
   const event = {kind: 'progress', text: '正在核对来源'};
-  expect(engineTurnEventSchema.safeParse({...envelope(), source: {...engineSourceFixture(), worker_generation: null}, event}).success).toBe(false);
+  expect(engineTurnEventSchema.safeParse({...envelope(), source: {...engineSourceFixture(), connection_generation: null}, event}).success).toBe(false);
   expect(engineTurnEventSchema.safeParse({...envelope(), source: {...engineSourceFixture(), run_id: ''}, event}).success).toBe(false);
   expect(engineTurnEventSchema.safeParse({...envelope(), sequence: 0, event}).success).toBe(false);
 });
@@ -80,7 +80,7 @@ test.each([
 
 test('platform lifecycle events can exist before a native turn is assigned', () => {
   expect(engineTurnEventSchema.parse({
-    ...envelope(), source: {...engineSourceFixture(), worker_id: null, worker_generation: null, native: null},
+    ...envelope(), source: {...engineSourceFixture(), device_id: null, connection_generation: null, native: null},
     event: {kind: 'turn.status', state: 'queued', reason: null},
   }).source.native).toBeNull();
 });

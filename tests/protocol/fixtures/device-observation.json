@@ -1,0 +1,23 @@
+[
+  {
+    "protocol_version": 9,
+    "report_revision": 1,
+    "platform": {"os":"linux","arch":"x64","computer_version":"fixture"},
+    "software": [],
+    "agents": [],
+    "services": [],
+    "git_credentials": []
+  },
+  {
+    "protocol_version": 9,
+    "report_revision": 2,
+    "platform": {"os":"darwin","arch":"arm64","computer_version":"1.2.3"},
+    "software": [{"id":"git","version":"2.4.0","detected":true}],
+    "agents": [{"id":"codex","version":null,"detected":true}],
+    "services": [{"id":"development","type":"development","version":"1","agent_id":null,"status":"ready","reason":null,"features":["browse","repository","native_history","terminal","codebase_preparation"]}],
+    "git_credentials": [{"host":"github.com","configured":true,"checked_at":1700000000000}]
+  },
+  {"protocol_version":8,"report_revision":1,"platform":{"os":"linux","arch":"x64","computer_version":"fixture"},"software":[],"agents":[],"services":[],"git_credentials":[]},
+  {"protocol_version":9,"report_revision":1,"platform":{"os":"linux","arch":"x64","computer_version":"fixture"},"software":[],"agents":[],"services":[],"git_credentials":[],"development":true},
+  {"protocol_version":9,"report_revision":1,"platform":{"os":"linux","arch":"x64","computer_version":"fixture"},"software":[],"agents":[],"services":[],"git_credentials":[],"approved_agents":["codex"]}
+]

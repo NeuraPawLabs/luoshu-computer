@@ -8,13 +8,9 @@ test('a normal run has a session and no Task', () => {
   expect(value.run_id).toBe('run_1');
 });
 
-test.each(['worker', 'core'])('%s submissions require Run identity and reject an extra batch identity', role => {
-  const fixture = engineSubmissionFixture();
-  const submission = {...fixture, binding: {...fixture.binding, role},
-    ...(role === 'core' ? {output_schema: {type: 'object'}} : {})};
-  expect(engineSubmissionSchema.safeParse(submission).success).toBe(true);
-  expect(engineSubmissionSchema.safeParse({...submission, batch_id: 'batch_1'}).success).toBe(false);
-  expect(engineSubmissionSchema.safeParse({...submission, run_id: undefined}).success).toBe(false);
+test('native submissions have one Run identity and reject an extra batch identity', () => {
+  const input=engineSubmissionFixture();
+  expect(engineSubmissionSchema.safeParse({...input,batch_id:'batch_1'}).success).toBe(false);
 });
 
 test('task id and revision are an inseparable explicit association', () => {
@@ -33,10 +29,10 @@ test('input must not duplicate itself or earlier context', () => {
 });
 
 test('thread and native session-tree identifiers are separate', () => {
-  expect(nativeSessionRefSchema.parse({thread_id: 'thread_child', session_tree_id: 'thread_root'})).toEqual({
-    thread_id: 'thread_child', session_tree_id: 'thread_root',
+  expect(nativeSessionRefSchema.parse({native_thread_id: 'thread_child', session_tree_id: 'thread_root'})).toEqual({
+    native_thread_id: 'thread_child', session_tree_id: 'thread_root',
   });
-  expect(nativeSessionRefSchema.safeParse({thread_id: '', session_tree_id: null}).success).toBe(false);
+  expect(nativeSessionRefSchema.safeParse({native_thread_id: '', session_tree_id: null}).success).toBe(false);
 });
 
 test('bindings reject missing revisions and credential fields', () => {
@@ -53,4 +49,15 @@ test('topic bindings freeze a positive context generation while legacy JSON rema
   expect(engineBindingSchema.safeParse({...legacy, topic_thread_id: 'topic_1'}).success).toBe(false);
   expect(engineBindingSchema.safeParse({...legacy, context_generation: 1}).success).toBe(false);
   expect(engineBindingSchema.safeParse({...topic, context_generation: 0}).success).toBe(false);
+});
+
+
+test('Core model decisions require a role-bound schema and cannot carry Worker codebase authority', () => {
+ const legacy=engineSubmissionFixture();
+ const core={...legacy,binding:{...legacy.binding,role:'core'},output_schema:{type:'object',properties:{text:{type:'string'}}}};
+ expect(engineSubmissionSchema.safeParse(core).success).toBe(true);
+ expect(engineSubmissionSchema.safeParse({...core,output_schema:undefined}).success).toBe(false);
+ expect(engineSubmissionSchema.safeParse({...legacy,output_schema:core.output_schema}).success).toBe(false);
+ expect(engineBindingSchema.safeParse({...legacy.binding,role:'worker'}).success).toBe(true);
+ expect(engineBindingSchema.safeParse({...legacy.binding,role:'admin'}).success).toBe(false);
 });

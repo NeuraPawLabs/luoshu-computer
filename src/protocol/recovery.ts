@@ -7,7 +7,7 @@ export const sha256Schema=z.string().regex(/^[a-f0-9]{64}$/);
 export const agentOutcomeSchema=z.enum(['succeeded','failed','cancelled','unknown']);
 export const agentEvidenceSchema=z.object({
  outcome:agentOutcomeSchema,exit_code:z.number().int().nullable(),
- summary:z.string().max(16000),session_id:z.string().max(200).nullable(),
+ summary:z.string().max(16000),engine_session_id:z.string().max(200).nullable(),
  checks:z.array(z.object({command:z.string().min(1).max(2000),exit_code:z.number().int()}).strict()).max(50),
  output_snapshot_sha256:sha256Schema.nullable(),codebases:z.array(codebaseExecutionResultSchema).max(32),
 }).strict().superRefine((v,c)=>{
