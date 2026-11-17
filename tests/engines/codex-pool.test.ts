@@ -39,7 +39,7 @@ test('workspace owner registry deletes only the exact session root after quiesce
  try{
   const owned=await pool.workspacePath('workspace','session'),foreign=await pool.workspacePath('foreign-workspace','foreign');
   await writeFile(join(owned!,'private.txt'),'owned');await writeFile(join(foreign!,'keep.txt'),'foreign');
-  expect(db.prepare('SELECT * FROM native_workspace_owners WHERE session_key=?').get('session')).toMatchObject({session_key:'session',workspace_id:'workspace',cwd:owned,state:'owned'});
+  expect(db.prepare('SELECT * FROM native_workspace_owners WHERE session_key=?').get('session')).toMatchObject({session_key:'session',execution_workspace_id:'workspace',cwd:owned,state:'owned'});
   await pool.quiesce('worker');await pool.cleanupWorkspace('session',owned!,()=>{});
   await expect(lstat(owned!)).rejects.toMatchObject({code:'ENOENT'});expect(await readFile(join(foreign!,'keep.txt'),'utf8')).toBe('foreign');
   expect(()=>pool.purgeWorkspace('session')).toThrow(/transaction/);db.transaction(()=>pool.purgeWorkspace('session'))();
@@ -104,7 +104,7 @@ test('production pool binds native launch lease to its Worker database without r
  const db=new Database(':memory:'),pool=new CodexAppServerPool({stateDir:'/unused',db});
  try{
   const client=pool.client('worker');expect(db.prepare('SELECT * FROM native_systemd_units').all()).toEqual([]);
-  const lease=await (client as any).options.nativeLease();expect(db.prepare('SELECT worker_id,unit_name FROM native_systemd_units').get()).toEqual({worker_id:'worker',unit_name:lease.unitName});lease.released();
+  const lease=await (client as any).options.nativeLease();expect(db.prepare('SELECT worker_id,unit_name FROM native_systemd_units').get()).toEqual({device_id:'worker',unit_name:lease.unitName});lease.released();
  }finally{await pool.close();db.close();}
 });
 test('cleanup quiescence closes owned client without replacement and retries uncertain exit',async()=>{

@@ -17,10 +17,10 @@ async function fixture(){
  const rpc:any={initialize:async()=>{calls.push('initialize');return{};},startThread:async()=>{calls.push('thread/start');return{id:'thread'};},resumeThread:async()=>{calls.push('thread/resume');return{id:'thread'};},startTurn:async()=>{calls.push('turn/start');return{id:'turn'};},interruptTurn:async()=>{calls.push('turn/interrupt');},backgroundTerminals:async()=>{calls.push('background/list');return{data:[],nextCursor:null};},terminateBackgroundTerminal:async()=>{calls.push('background/terminate');return{terminated:true};}};
  const files=new NativeRunFiles(db,i=>Boolean(store.result(i.session_id,i.submission_id))),workspace={path:async()=>root};
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:()=>workspace.path(),files,generation:()=>generation,authorized:()=>authorized});
- const binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'test'}];
- const prepare={action:'session_prepare',request_id:'prepare',session_id:'session',workspace_id:'workspace',binding};
- const submit={action:'submit',request_id:'submit',lease_ms:120000,submission:{submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],task_id:null,task_revision:null,input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex')},input};
- const control={request_id:'control',session_id:'session',run_id:'run',submission_id:'submission',authorization_revision:1};
+ const binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}},input=[{type:'text',text:'test'}];
+ const prepare={action:'session_prepare',request_id:'prepare',engine_session_id:'session',execution_workspace_id:'workspace',binding};
+ const submit={action:'submit',request_id:'submit',lease_ms:120000,submission:{submission_id:'submission',run_id:'run',engine_session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],task_id:null,task_revision:null,input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex')},input};
+ const control={request_id:'control',engine_session_id:'session',run_id:'run',submission_id:'submission',authorization_revision:1};
  const terminal=()=>service.notification('turn/completed',{threadId:'thread',turn:{id:'turn',status:'completed',items:[]}});
  return{db,store,rpc,calls,files,workspace,service,prepare,submit,control,terminal,change:()=>generation++,revoke:()=>{authorized=false;},close:async()=>{await service.disconnect();db.close();await rm(root,{recursive:true,force:true});}};
 }
@@ -50,7 +50,7 @@ test('generation change while turn start is in flight saves exact late identity 
   f.rpc.startTurn=async()=>{entered=true;await gate.promise;return start();};
   const pending=f.service.handle(f.submit);void pending.catch(()=>{});await expect.poll(()=>entered).toBe(true);
   f.change();gate.release();await expect(pending).rejects.toThrow(/authority|generation|connection/i);
-  expect(f.store.submission('submission')).toMatchObject({thread_id:'thread',turn_id:'turn',status:'unknown'});
+  expect(f.store.submission('submission')).toMatchObject({native_thread_id:'thread',turn_id:'turn',status:'unknown'});
   expect(f.calls.filter(c=>c==='turn/start')).toHaveLength(1);expect(f.calls).toContain('turn/interrupt');
  }finally{gate.release();await f.close();}
 });

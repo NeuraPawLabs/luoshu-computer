@@ -22,17 +22,17 @@ async function fixture(options:{blockedGit?:boolean}={}){
  const calls:any[]=[];const rpc:any={initialize:async()=>({}),startThread:async(p:any)=>{calls.push(['thread/start',p]);starts++;return{id:'thread'};},resumeThread:async(p:any)=>{calls.push(['thread/resume',p]);return{id:p.threadId};},startTurn:async(p:any)=>{calls.push(['turn/start',p]);return{id:'turn'};},interruptTurn:async()=>{},backgroundTerminals:async()=>({data:[],nextCursor:null})};
  const rootPolicy=new DevelopmentRootPolicy({roots:[source],persist:async()=>{}});
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>cwd,files,codebases,rootPolicy,capacity:()=>1});
- const input=[{type:'text',text:'work'}],binding={conversation_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',worker_id:'worker',agent:'codex',adapter_version:1}},submission={submission_id:'submission',run_id:'run',session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null,codebases:[{id:'11111111-1111-4111-8111-111111111111',alias:'app',access_mode:'write',source:{kind:'local',path:source},root_path:'.',default_branch:'main'}]};
- const prepare={action:'workspace_prepare',request_id:'prepare',submission,workspace_id:'session',developer_instructions:'custom',input_files:[],lease_ms:120000};
+ const input=[{type:'text',text:'work'}],binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}},submission={submission_id:'submission',run_id:'run',engine_session_id:'session',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null,codebases:[{id:'11111111-1111-4111-8111-111111111111',alias:'app',access_mode:'write',source:{kind:'local',path:source},root_path:'.',default_branch:'main'}]};
+ const prepare={action:'workspace_prepare',request_id:'prepare',submission,execution_workspace_id:'session',developer_instructions:'custom',input_files:[],lease_ms:120000};
  return{root,base,db,store,codebases,files,service,input,submission,prepare,calls,rpc,rootPolicy,helperPid,starts:()=>starts,close:async()=>{await service.close();db.close();await rm(root,{recursive:true,force:true});}};
 }
 test('native workspace prepare returns bound pinned receipt without starting any native thread and preserves capacity',async()=>{
  const f=await fixture();try{
   const response=await f.service.handle(f.prepare);
-  expect(response).toMatchObject({action:'workspace_prepare',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1,codebases:[{codebase_id:f.submission.codebases[0].id,base_commit:f.base,branch:'luoshu/feature/run-app'}]});
+  expect(response).toMatchObject({action:'workspace_prepare',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1,codebases:[{codebase_id:f.submission.codebases[0].id,base_commit:f.base,branch:'luoshu/feature/run-app'}]});
   expect(f.starts()).toBe(0);expect(f.store.session('session')?.thread_id).toBeNull();expect(f.files.activeCount()).toBe(1);
   expect(await f.service.handle({...f.prepare,request_id:'replay'})).toEqual({...response,request_id:'replay'});
-  await expect(f.service.handle({...f.prepare,submission:{...f.submission,submission_id:'other',run_id:'other',session_id:'other'},workspace_id:'other'})).rejects.toThrow(/capacity/);
+  await expect(f.service.handle({...f.prepare,submission:{...f.submission,submission_id:'other',run_id:'other',engine_session_id:'other'},execution_workspace_id:'other'})).rejects.toThrow(/capacity/);
   await expect(f.service.handle({...f.prepare,submission:{...f.submission,codebases:[{...f.submission.codebases[0],alias:'different'}]}})).rejects.toThrow(/conflict/);
  }finally{await f.close();}
 });
@@ -40,7 +40,7 @@ test('prepared native resources establish exact permissions before the first thr
  const f=await fixture();try{
   const prepared=await f.service.handle(f.prepare);if(prepared.action!=='workspace_prepare')throw Error();
   const path=prepared.codebases[0].checkout_path;
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   expect(f.calls[0][1].permissionScope.config.filesystem[':workspace_roots']).toEqual({'targets/app':'write'});
   expect(f.calls[0][1].permissionScope.runtimeWorkspaceRoots).toEqual([join(f.root,'state','runs','run')]);
   await f.service.handle({action:'submit',request_id:'s',submission:f.submission,input:f.input,lease_ms:120000});
@@ -58,12 +58,12 @@ test('prepared native resources establish exact permissions before the first thr
 test('Codebase delivery rejects session policy drift from the exact policy pinned before native execution',async()=>{
  const f=await fixture();try{
   await f.service.handle(f.prepare);
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   await f.service.handle({action:'submit',request_id:'s',submission:f.submission,input:f.input,lease_ms:120000});
   f.service.notification('turn/completed',{threadId:'thread',turn:{id:'turn',status:'completed',items:[]}});
   const policy=JSON.parse(f.store.session('session')!.policy_json!);policy.permissions.config.filesystem['/foreign']='write';
   f.db.prepare('UPDATE codex_native_sessions SET policy_json=? WHERE session_key=?').run(JSON.stringify(policy),'session');
-  await expect(f.service.codebaseReceipts({session_id:'session',submission_id:'submission',run_id:'run'})).rejects.toThrow(/policy|scope/i);
+  await expect(f.service.codebaseReceipts({engine_session_id:'session',submission_id:'submission',run_id:'run'})).rejects.toThrow(/policy|scope/i);
  }finally{await f.close();}
 });
 
@@ -71,7 +71,7 @@ test('native submit cannot race a replay that is still staging its workspace',as
  const f=await fixture();let release!:()=>void;const gate=new Promise<void>(resolve=>release=resolve);
  try{
   await f.service.handle(f.prepare);
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   let entered=false;const original=f.files.prepare.bind(f.files);
   vi.spyOn(f.files,'prepare').mockImplementation(async(input)=>{entered=true;await gate;return original(input);});
   const preparing=f.service.handle(f.prepare);void preparing.catch(()=>{});
@@ -87,12 +87,12 @@ test('workspace preparation cannot stage files for another binding or mismatched
  const f=await fixture();try{
   await expect(f.service.handle({...f.prepare,input_files:[{name:'forged.txt',mime_type:'text/plain',content_base64:'eA=='}]})).rejects.toThrow(/digest/);
   expect(f.store.session('session')).toBeUndefined();
-  await expect(f.service.handle({...f.prepare,submission:{...f.submission,binding:{...f.submission.binding,engine:{...f.submission.binding.engine,worker_id:'foreign'}}}})).rejects.toThrow(/Worker/);
+  await expect(f.service.handle({...f.prepare,submission:{...f.submission,binding:{...f.submission.binding,engine:{...f.submission.binding.engine,device_id:'foreign'}}}})).rejects.toThrow(/Worker/);
  }finally{await f.close();}
 });
 test('known runtime drift is rejected before a new Codebase preparation acquires files or capacity',async()=>{
  const f=await fixture();try{
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom'});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom'});
   const before=f.store.session('session');f.rpc.runtimeExecutable=async()=>{throw Object.assign(Error('runtime replaced'),{code:'CODEX_RUNTIME_CHANGED'});};
   await expect(f.service.handle(f.prepare)).rejects.toMatchObject({code:'CODEX_RUNTIME_CHANGED'});
   expect(f.files.pending()).toEqual([]);expect(f.store.preparationState(f.submission as any)).toBe('missing');expect(f.store.session('session')).toEqual(before);
@@ -110,12 +110,12 @@ test('cancelling preparation drains pending Git work, releases capacity and dura
   let settled=false;const cancel=f.service.handle({action:'workspace_cancel',request_id:'cancel',submission:f.submission}).then(r=>{settled=true;return r;});void cancel.catch(()=>{});
   await new Promise(resolve=>setImmediate(resolve));expect(settled).toBe(false);expect(f.files.activeCount()).toBe(1);
   release();await expect(preparing).rejects.toThrow(/cancel/i);
-  expect(await cancel).toMatchObject({action:'workspace_cancel',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1});
+  expect(await cancel).toMatchObject({action:'workspace_cancel',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1});
   expect(f.files.activeCount()).toBe(0);expect(f.store.submission('submission')).toBeUndefined();expect(f.starts()).toBe(0);
   await expect(f.service.handle(f.prepare)).rejects.toThrow(/cancel/i);
   const reopened=new CodexSessionStore(f.db);
   expect(()=>reopened.reserve({...f.submission.binding,engine:f.submission.binding.engine} as any,'session',f.store.session('session')!.cwd,'submission',f.submission.input_sha256)).toThrow(/cancel/i);
-  await expect(f.service.handle({...f.prepare,submission:{...f.submission,submission_id:'other',run_id:'other',session_id:'other'},workspace_id:'other'})).resolves.toMatchObject({action:'workspace_prepare',run_id:'other'});
+  await expect(f.service.handle({...f.prepare,submission:{...f.submission,submission_id:'other',run_id:'other',engine_session_id:'other'},execution_workspace_id:'other'})).resolves.toMatchObject({action:'workspace_prepare',run_id:'other'});
  }finally{release();await f.close();}
 });
 
@@ -145,12 +145,12 @@ test('cancellation during native thread preparation drains its late receipt with
  try{
   await f.service.handle(f.prepare);
   vi.spyOn(f.rpc,'startThread').mockImplementation(()=>new Promise(resolve=>release=resolve));
-  const preparing=f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});void preparing.catch(()=>{});
+  const preparing=f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});void preparing.catch(()=>{});
   await expect.poll(()=>Boolean(release)).toBe(true);
   const cancel=f.service.handle({action:'workspace_cancel',request_id:'cancel',submission:f.submission});void cancel.catch(()=>{});
   expect(f.files.activeCount()).toBe(1);release({id:'late-thread'});
   await expect(preparing).rejects.toThrow(/cancel/i);
-  await expect(cancel).resolves.toMatchObject({session_state:'idle',native:{thread_id:'late-thread'}});
+  await expect(cancel).resolves.toMatchObject({session_state:'idle',native:{native_native_thread_id:'late-thread'}});
   expect(f.files.activeCount()).toBe(0);expect(f.calls.some(c=>c[0]==='turn/start')).toBe(false);
  }finally{release?.({id:'late-thread'});await f.close();}
 });
@@ -180,21 +180,21 @@ test('directory narrowing reports native preparation and explicitly cancelling i
 test('native directory stop requests interrupt but retains the root blocker until execution and delivery are confirmed',async()=>{
  const f=await fixture();try{
   await f.service.handle(f.prepare);
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   await f.service.handle({action:'submit',request_id:'s',submission:f.submission,input:f.input,lease_ms:120000});
   const interrupt=vi.spyOn(f.rpc,'interruptTurn');
   expect((await f.rootPolicy.update([],'revoked',['native:submission'])).status).toBe('blocked');
   expect(interrupt).toHaveBeenCalledWith({threadId:'thread',turnId:'turn'});expect(f.store.submission('submission')?.status).toBe('stopping');
   f.service.notification('turn/completed',{threadId:'thread',turn:{id:'turn',status:'interrupted',items:[]}});
   expect((await f.rootPolicy.update([],'revoked',[])).status).toBe('blocked');
-  await f.service.handle({action:'collect_result',request_id:'collect',session_id:'session',run_id:'run',submission_id:'submission',authorization_revision:1});
+  await f.service.handle({action:'collect_result',request_id:'collect',engine_session_id:'session',run_id:'run',submission_id:'submission',authorization_revision:1});
   expect((await f.rootPolicy.update([],'revoked',[])).status).toBe('applied');
  }finally{await f.close();}
 });
 test('applied Worker root configuration immediately stops native execution even without output or another request',async()=>{
  const f=await fixture();try{
   await f.service.handle(f.prepare);
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   await f.service.handle({action:'submit',request_id:'s',submission:f.submission,input:f.input,lease_ms:120000});
   const interrupt=vi.spyOn(f.rpc,'interruptTurn');
   f.rootPolicy.setApplied([],'config-revoked');
@@ -225,10 +225,10 @@ test('reopening after source revocation keeps unresolved work inspectable and ca
 test('replaying a delivered workspace receipt never reacquires an inactive directory grant',async()=>{
  const f=await fixture();try{
   await f.service.handle(f.prepare);
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   await f.service.handle({action:'submit',request_id:'s',submission:f.submission,input:f.input,lease_ms:120000});
   f.service.notification('turn/completed',{threadId:'thread',turn:{id:'turn',status:'completed',items:[]}});
-  await f.service.handle({action:'collect_result',request_id:'collect',session_id:'session',run_id:'run',submission_id:'submission',authorization_revision:1});
+  await f.service.handle({action:'collect_result',request_id:'collect',engine_session_id:'session',run_id:'run',submission_id:'submission',authorization_revision:1});
   await f.service.handle(f.prepare);
   expect((await f.rootPolicy.update([],'revoked',[])).status).toBe('applied');
  }finally{await f.close();}
@@ -282,7 +282,7 @@ test('preparation renewal survives its original deadline and then yields to nati
   for(const field of ['run_id','session_id'] as const)await expect(f.service.handle({...renew,submission:{...f.submission,[field]:'foreign'}})).rejects.toThrow(/conflict|identity/i);
   await f.service.handle(renew);await vi.advanceTimersByTimeAsync(60);await f.service.handle(renew);await vi.advanceTimersByTimeAsync(60);
   await expect(f.service.handle({action:'workspace_inspect',request_id:'i',submission:f.submission})).resolves.toMatchObject({state:'open'});
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   await f.service.handle({action:'submit',request_id:'s',submission:f.submission,input:f.input,lease_ms:120000});
   await vi.advanceTimersByTimeAsync(200);expect(f.store.submission('submission')?.status).toBe('running');
   await expect(f.service.handle(renew)).rejects.toThrow(/submit|prepar/i);
@@ -292,7 +292,7 @@ test('malformed native input cannot disarm a pending preparation lease',async()=
  const f=await fixture();try{
   await f.service.handle(f.prepare);vi.useFakeTimers({toFake:['Date','setTimeout','clearTimeout']});
   await f.service.handle({action:'workspace_renew',request_id:'renew',submission:f.submission,lease_ms:100});
-  await f.service.handle({action:'session_prepare',request_id:'p',session_id:'session',binding:f.submission.binding,workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
+  await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});
   await expect(f.service.handle({action:'submit',request_id:'s',submission:f.submission,input:[{type:'text',text:'changed'}],lease_ms:120000})).rejects.toThrow(/digest/i);
   await vi.advanceTimersByTimeAsync(101);
   await expect(f.service.handle({action:'workspace_inspect',request_id:'i',submission:f.submission})).resolves.toMatchObject({state:'cancelled'});
