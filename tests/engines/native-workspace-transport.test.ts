@@ -18,7 +18,7 @@ async function fixture(options:{blockedGit?:boolean}={}){
  const git=async(args:string[])=>(await exec('git',args,{cwd:source})).stdout.trim();await git(['init','-b','main']);await writeFile(join(source,'index.txt'),'base');await git(['add','.']);await git(['-c','user.name=Fixture','-c','user.email=f@invalid','commit','-m','init']);const base=await git(['rev-parse','HEAD']);
  const helper=join(root,'ssh'),helperPid=join(root,'helper-pid');
  if(options.blockedGit)await writeFile(helper,`#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(helperPid)},String(process.pid));process.on('SIGTERM',()=>{});setInterval(()=>{},1000);\n`,{mode:0o700});
- const db=new Database(':memory:'),store=new CodexSessionStore(db),codebases=new NativeCodebases(db,{stateDir:state,allowedRoots:()=>[source],...(options.blockedGit?{gitSshCommand:helper}:{})}),files=new NativeRunFiles(db,i=>Boolean(store.result(i.session_id,i.submission_id)));let starts=0;
+ const db=new Database(':memory:'),store=new CodexSessionStore(db),codebases=new NativeCodebases(db,{stateDir:state,allowedRoots:()=>[source],...(options.blockedGit?{gitSshCommand:helper}:{})}),files=new NativeRunFiles(db,i=>Boolean(store.result(i.engine_session_id,i.submission_id)));let starts=0;
  const calls:any[]=[];const rpc:any={initialize:async()=>({}),startThread:async(p:any)=>{calls.push(['thread/start',p]);starts++;return{id:'thread'};},resumeThread:async(p:any)=>{calls.push(['thread/resume',p]);return{id:p.threadId};},startTurn:async(p:any)=>{calls.push(['turn/start',p]);return{id:'turn'};},interruptTurn:async()=>{},backgroundTerminals:async()=>({data:[],nextCursor:null})};
  const rootPolicy=new DevelopmentRootPolicy({roots:[source],persist:async()=>{}});
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>cwd,files,codebases,rootPolicy,capacity:()=>1});
@@ -87,7 +87,7 @@ test('workspace preparation cannot stage files for another binding or mismatched
  const f=await fixture();try{
   await expect(f.service.handle({...f.prepare,input_files:[{name:'forged.txt',mime_type:'text/plain',content_base64:'eA=='}]})).rejects.toThrow(/digest/);
   expect(f.store.session('session')).toBeUndefined();
-  await expect(f.service.handle({...f.prepare,submission:{...f.submission,binding:{...f.submission.binding,engine:{...f.submission.binding.engine,worker_id:'foreign'}}}})).rejects.toThrow(/Worker/);
+  await expect(f.service.handle({...f.prepare,submission:{...f.submission,binding:{...f.submission.binding,engine:{...f.submission.binding.engine,device_id:'foreign'}}}})).rejects.toThrow(/Worker/);
  }finally{await f.close();}
 });
 test('known runtime drift is rejected before a new Codebase preparation acquires files or capacity',async()=>{
@@ -246,7 +246,7 @@ test('workspace inspection distinguishes a cancellation intent from drained canc
   await expect(f.service.handle(inspect)).resolves.toMatchObject({state:'cancelling'});
   release();await expect(preparing).rejects.toThrow(/cancel/i);await cancelling;
   await expect(f.service.handle(inspect)).resolves.toMatchObject({state:'cancelled',session_state:'idle',native:null});
-  for(const field of ['run_id','session_id','input_sha256'] as const)await expect(f.service.handle({...inspect,submission:{...f.submission,[field]:field==='input_sha256'?'a'.repeat(64):'foreign'}})).rejects.toThrow(/conflict|identity/i);
+  for(const field of ['run_id','engine_session_id','input_sha256'] as const)await expect(f.service.handle({...inspect,submission:{...f.submission,[field]:field==='input_sha256'?'a'.repeat(64):'foreign'}})).rejects.toThrow(/conflict|identity/i);
   expect(f.starts()).toBe(0);expect(f.files.activeCount()).toBe(0);
  }finally{release();await f.close();}
 });
@@ -279,7 +279,7 @@ test('preparation renewal survives its original deadline and then yields to nati
  const f=await fixture();try{
   await f.service.handle(f.prepare);vi.useFakeTimers({toFake:['Date','setTimeout','clearTimeout']});
   const renew={action:'workspace_renew',request_id:'renew',submission:f.submission,lease_ms:100};
-  for(const field of ['run_id','session_id'] as const)await expect(f.service.handle({...renew,submission:{...f.submission,[field]:'foreign'}})).rejects.toThrow(/conflict|identity/i);
+  for(const field of ['run_id','engine_session_id'] as const)await expect(f.service.handle({...renew,submission:{...f.submission,[field]:'foreign'}})).rejects.toThrow(/conflict|identity/i);
   await f.service.handle(renew);await vi.advanceTimersByTimeAsync(60);await f.service.handle(renew);await vi.advanceTimersByTimeAsync(60);
   await expect(f.service.handle({action:'workspace_inspect',request_id:'i',submission:f.submission})).resolves.toMatchObject({state:'open'});
   await f.service.handle({action:'session_prepare',request_id:'p',engine_session_id:'session',binding:f.submission.binding,execution_workspace_id:'session',developer_instructions:'custom',resources:{run_id:'run',submission_id:'submission'}});

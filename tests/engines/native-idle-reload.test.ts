@@ -75,7 +75,7 @@ test('one inactivity timer releases only after the response, never while the Run
   f.terminal('one');await f.collect('one');
   vi.useFakeTimers();
   // A read-only request schedules the same inactivity deadline using fake time.
-  await f.service.handle({action:'result',request_id:'read',session_id:'s',run_id:'one',submission_id:'one',authorization_revision:1});
+  await f.service.handle({action:'result',request_id:'read',engine_session_id:'s',run_id:'one',submission_id:'one',authorization_revision:1});
   await vi.advanceTimersByTimeAsync(59999);expect(f.pool.client('worker').isClosed).toBe(false);
   const before=f.pool.client('worker');await vi.advanceTimersByTimeAsync(1);expect(before.isClosed).toBe(true);
   vi.useRealTimers();await f.submit('two');expect(f.calls).toEqual(['start','turn','resume:thread-1','turn']);
@@ -108,7 +108,7 @@ test('runtime drift rejects new input without delivery locks and idle reload res
   await expect(f.submit('two')).rejects.toMatchObject({code:'CODEX_RUNTIME_CHANGED'});
   expect(f.store.session('s')).toEqual(before);expect(f.store.submission('two')).toBeUndefined();expect(f.files.pending()).toEqual([]);
   expect(client.isClosed).toBe(false);expect(await f.service.releaseIdle()).toBe(true);
-  await f.submit('two');expect(f.store.submission('two')?.native_thread_id).toBe(before?.thread_id);
+  await f.submit('two');expect(f.store.submission('two')?.native_thread_id).toBe('thread-1');
   expect(f.calls).toEqual(['start','turn','resume:thread-1','turn']);
  }finally{await f.close();}
 });
