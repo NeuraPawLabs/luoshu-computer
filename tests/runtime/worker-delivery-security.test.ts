@@ -19,7 +19,7 @@ test('package resend reads its pinned directory even if an ancestor is replaced'
  const root=await mkdtemp(join(tmpdir(),'delivery-parent-')),state=new WorkerState(join(root,'worker.db'));
  const assignment={attempt_id:'execution',lease_epoch:1,agent:'codex' as const,instruction:'build',input_files:[],codebases:[],timeout_seconds:null};
  state.recordStart('execution',1,assignment);state.finish('execution','finished');
- const cp=new CheckpointStore(state.db);cp.begin(assignment);cp.agentFinished('execution',{outcome:'succeeded',exit_code:0,summary:'done',session_id:null,checks:[],codebases:[],output_snapshot_sha256:null});
+ const cp=new CheckpointStore(state.db);cp.begin(assignment);cp.agentFinished('execution',{outcome:'succeeded',exit_code:0,summary:'done',engine_session_id:null,checks:[],codebases:[],output_snapshot_sha256:null});
  const service=new WorkerDeliveryService({state,checkpoints:cp,stateDir:root,isExecutionActive:()=>false});
  try{
   await mkdir(join(root,'workspaces','execution','outputs'),{recursive:true});await writeFile(join(root,'workspaces','execution','outputs','file.txt'),'safe');

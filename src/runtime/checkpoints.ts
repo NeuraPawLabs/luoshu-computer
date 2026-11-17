@@ -34,7 +34,7 @@ export class CheckpointStore{
  }
  read(executionId:string):WorkerCheckpoint|null{
   idSchema.parse(executionId);
-  const row=this.db.prepare('SELECT * FROM worker_checkpoints WHERE execution_id=?').get(executionId) as Row|undefined;
+  const row=this.db.prepare('SELECT execution_id,assignment_sha256,version,stage,evidence_json,session_id AS engine_session_id,source_snapshot_sha256,current_delivery_id,error_code,updated_at FROM worker_checkpoints WHERE execution_id=?').get(executionId) as Row|undefined;
   if(!row)return null;
   const {evidence_json,...value}=row;
   return {...value,evidence:evidence_json?agentEvidenceSchema.parse(JSON.parse(evidence_json)):null};
