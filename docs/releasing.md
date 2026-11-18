@@ -1,6 +1,6 @@
 # Release procedure
 
-Computer versions are independent of Core. The first public version is **0.1.0**, wire protocol **8**, packaged for Linux x64 with systemd 254+ and cgroup v2.
+Computer versions are independent of Core. The first public version is **0.1.0**, current source wire protocol **9**, packaged for Linux x64 with systemd 254+ and cgroup v2.
 
 ## One-time signing configuration
 

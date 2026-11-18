@@ -13,7 +13,7 @@ luoshu-computer status
 luoshu-computer doctor
 ```
 
-Get a pairing code from your Luoshu instance and approve the device after registration. The installer needs curl, OpenSSL with Ed25519 support, Python 3, tar and flock; Node.js is bundled in the release. No GitHub login or user-managed signing key is needed.
+Get a pairing code from your Luoshu instance and activate the device and grant each Agent separately after registration. The installer needs curl, OpenSSL with Ed25519 support, Python 3, tar and flock; Node.js is bundled in the release. No GitHub login or user-managed signing key is needed.
 
 The installer uses the repository's latest signed formal GitHub Release. It verifies the manifest against its embedded public key before downloading the archive, then checks the protocol, platform, digest, size and extraction paths. `LUOSHU_RELEASE_TAG=v0.1.0` selects a particular release. An absent or invalid signature stops installation and preserves existing state.
 
@@ -60,7 +60,7 @@ src/
   engines/      Native Agent sessions and supervised processes
   development/  Directory access and interactive development sessions
   maintenance/  Authorized repository maintenance
-  protocol/     Core/device wire schemas, protocol v8
+  protocol/     Core/device wire schemas, protocol v9
   shared/       Security, execution budgets and release validation
 tests/         Behavioral suites grouped by module
 scripts/       Runtime packaging, signing, publishing and installers

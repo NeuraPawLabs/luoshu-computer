@@ -2,7 +2,7 @@
 
 | Computer | Wire protocol | Packaged platform | Build runtime |
 | --- | --- | --- | --- |
-| 0.1.1 | 8 | Linux x64, systemd 254+ user services, cgroup v2 | Node.js 22.17.1 |
+| 0.1.1 (current source) | 9 | Linux x64, systemd 254+ user services, cgroup v2 | Node.js 22.17.1 |
 
 The independent public version sequence starts at 0.1.0. The earlier 0.1.6 repository import was release preparation; it had no published version tag or Release when the starting version was corrected. Monorepo device versions belong to a separate preparation sequence.
 
@@ -14,19 +14,19 @@ The Core database and scheduler remain in the parent repository; this independen
 
 ## Current source alignment
 
-The 2026-11-12 source correction aligns `src/protocol` with all 23 files in Core `packages/protocol/src` at `45bfb8d51380baff25422b1dfec2b4a1609f9cdd`. Both Core decisions and Worker execution submissions require `run_id`, `submission_id` and `session_id`; `batch_id` is rejected as an unknown field. Message batching remains an internal Core intake detail and is not a second execution identity on the wire.
+The current source implements device protocol **9** and must be released together with a matching Core build. Package version 0.1.1 alone does not establish which protocol an older binary implements; use the signed release manifest and source revision.
 
-This correction also aligns Task creation's optional `task_kind` and `acceptance_criteria`, and the native `luoshu_thread_title` tool and `thread.title.request` event. Conversation and Thread title tools retain separate call identities, preserve the active Run's authority and use versioned Core receipts. Core-role sessions continue to expose no native Worker tools.
+`src/protocol` matches Core `packages/protocol/src`. Device identity (`device_id`), current transport (`connection_generation`), business Session (`session_id`), native engine session (`engine_session_id`), native thread (`native_thread_id`) and prepared execution workspace (`execution_workspace_id`) are distinct. Device observations report platform, software, agents and typed services; Core owns activation, names and Agent grants. Configuration has explicit desired/applied revisions. No protocol-8 downgrade or old WorkerReport aliases are provided.
 
-Protocol version remains 8 because this checkout is catching up to the existing Core contract. The correction is a source change, not a published Computer release; an older 0.1.1 binary that requires `batch_id` is not fixed by restarting it. Build this corrected checkout for joint validation. Neither matching package versions nor the wire version alone proves that independently copied schemas agree.
+Both Core decisions and Worker submissions belong to `run_id`; `batch_id` remains internal to Core intake and is rejected on the wire. Core-role sessions expose no native Worker tools. Matching version numbers alone do not prove independently copied schemas agree: run both protocol suites and the joint integration gates before release.
 
 ## Device-backed Core Agent capability
 
-Wire protocol 8 alone does not establish support for the device-backed Core decision loop. Core also requires the Codex engine report to contain `core_agent_runtime`. Older Computer 0.1.0 installations lack this implementation and report, even though they can still execute Worker tasks; restarting or updating Codex alone does not add it. Upgrade to Computer 0.1.1 or later before selecting a device-backed Core Agent.
+Core requires a ready `assistant_engine` service with the supported version and required features, including `core_agent_runtime`. Detection of Codex alone is insufficient; Core also checks activation, current transport, Agent grant and capacity. Restarting an older v8 binary cannot provide v9 support.
 
 Core bindings use `role: "core"` and require a per-submission `output_schema`; missing roles keep the existing Worker behavior. The device forwards the schema as native `turn/start.outputSchema`. Core sessions use a host-owned read-only permission profile with no runtime workspace roots or command network access, even when the device's Worker mode is full access. They receive no native dynamic tools, attachments, Codebase grants or Worker run-file instructions. Inherited native tools, MCP servers, apps, plugins, hooks, `notify` commands and local project instructions are disabled for the Core thread without changing the user's on-disk configuration. Tool proposals in the structured answer are executed and authorized by Core.
 
-A completed Core result acknowledges late `renew` requests without reopening execution, so completion before the submit acknowledgement or during a heartbeat does not prevent result collection. A pre-reservation capacity refusal uses `DEVICE_CORE_CAPACITY_UNAVAILABLE` with `retryable: true`; this is the only error that proves no turn started and allows Core to queue the same round again. Lost responses and failures after reservation retain the unknown-execution fence. Normal installation updates now advance 0.1.0 to 0.1.1 while preserving device identity and rollback data.
+A completed Core result acknowledges late `renew` requests without reopening execution, so completion before the submit acknowledgement or during a heartbeat does not prevent result collection. A pre-reservation capacity refusal uses `DEVICE_CORE_CAPACITY_UNAVAILABLE` with `retryable: true`; this is the only error that proves no turn started and allows Core to queue the same round again. Lost responses and failures after reservation retain the unknown-execution fence. Installation updates validate the target protocol and retain rollback data.
 
 Readiness advertising still relies on the existing native login/permission audit. A dedicated startup probe for structured output and Core tool isolation remains a follow-up; a report is not proof that an arbitrary Codex version or host sandbox supports the contract. The opt-in check below uses a temporary Codex home and a local fake Responses server, with no user credentials or paid model calls:
 
