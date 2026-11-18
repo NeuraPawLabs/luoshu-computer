@@ -13,6 +13,7 @@ export function mutableConfig(config: WorkerConfig): DeviceMutableConfiguration 
 }
 function revisionOf(config:WorkerConfig,value:DeviceMutableConfiguration):string{return createHash('sha256').update(JSON.stringify([config.worker_config_revision??'',value])).digest('hex');}
 function stateOf(config:WorkerConfig):DeviceConfigurationState{const value=mutableConfig(config),revision=config.worker_config_revision??`local-${revisionOf(config,value)}`;return{desired_revision:revision,applied_revision:revision,desired:value,applied:value,status:'applied',error:null};}
+function errorMessages(error:Error):string[]{return error instanceof AggregateError?[...error.errors].flatMap(cause=>errorMessages(cause instanceof Error?cause:new Error(String(cause)))):[error.message];}
 function localPatch(current:WorkerConfig,config:DeviceMutableConfiguration,revision:string):WorkerConfig {
   const {development_policy,...rest}=config;
   const next:WorkerConfig={...current,name:rest.name,capacity:rest.capacity,agent_paths:rest.agent_paths,maintenance_roots:rest.maintenance_roots,codex_sandbox:rest.codex_sandbox,worker_config_revision:revision,development_roots_revision:revision,codex_settings_revision:revision};
@@ -36,7 +37,7 @@ export class WorkerConfigController {
     return value;
   }
   state():Promise<DeviceConfigurationState>{const work=this.tail.catch(()=>{}).then(async()=>{const current=await loadWorkerConfig(this.stateDir),value=await this.stateFor(current);if(!this.applied||this.applied.desired_revision!==value.desired_revision||JSON.stringify(this.applied.applied)!==JSON.stringify(value.applied)){await this.reconcile(value);this.applied=value;await this.persist(value);}return structuredClone(this.applied!);});this.tail=work;return work;}
-  private async reconcile(state:DeviceConfigurationState){const config=state.status==='applied'?state.desired:state.applied??state.desired;const revision=state.status==='applied'?state.desired_revision:state.applied_revision??state.desired_revision;for(const listener of this.listeners)await listener(structuredClone(config),revision);}
+  private async reconcile(state:DeviceConfigurationState){const config=state.status==='applied'?state.desired:state.applied??state.desired;const revision=state.status==='applied'?state.desired_revision:state.applied_revision??state.desired_revision;const errors:Error[]=[];for(const listener of this.listeners){try{await listener(structuredClone(config),revision);}catch(error){errors.push(error instanceof Error?error:new Error(String(error)));}}if(errors.length)throw new AggregateError(errors,['Runtime configuration reconciliation failed',...errors.flatMap(errorMessages)].join('; '));}
   onApplied(listener:(config:DeviceMutableConfiguration,revision:string)=>void|Promise<void>){this.listeners.add(listener);this.applied=undefined;return()=>this.listeners.delete(listener);}
   apply(request:any):Promise<DeviceConfigurationState>{const work=this.tail.catch(()=>{}).then(()=>this.applyOnce(request));this.tail=work;return work as Promise<DeviceConfigurationState>;}
   private async applyOnce(request:any):Promise<DeviceConfigurationState>{
@@ -55,12 +56,20 @@ export class WorkerConfigController {
       await this.persist(pending);this.applied=pending;
       const next=localPatch(before,config,desiredRevision);await updateWorkerConfig(this.stateDir,()=>next);
       try{for(const listener of this.listeners)await listener(structuredClone(config),desiredRevision);}
-      catch(error){await saveWorkerConfig(this.stateDir,before);throw Object.assign(error instanceof Error?error:new Error(String(error)),{configurationBlocked:true});}
+      catch(error){
+        let fileRollbackError:Error|undefined,runtimeRollbackError:Error|undefined;
+        try{await saveWorkerConfig(this.stateDir,before);}catch(cause){fileRollbackError=cause instanceof Error?cause:new Error(String(cause));}
+        try{await this.reconcile(previous);}catch(cause){runtimeRollbackError=cause instanceof Error?cause:new Error(String(cause));}
+        throw Object.assign(error instanceof Error?error:new Error(String(error)),{configurationBlocked:true,rollback:{fileRollbackError,runtimeRollbackError}});
+      }
       const applied=stateOf(next);this.applied=applied;await this.persist(applied);return structuredClone(applied);
     }catch(error){
-      const current=before??await loadWorkerConfig(this.stateDir),applied=await this.stateFor(current),message=redact(error instanceof Error?error.message:String(error)).slice(0,2000);
+      const rollback=(error as {rollback?:{fileRollbackError?:Error;runtimeRollbackError?:Error}}).rollback;
+      const current=before??await loadWorkerConfig(this.stateDir),applied=await this.stateFor(current),rollbackErrors=[rollback?.fileRollbackError,rollback?.runtimeRollbackError].filter((cause):cause is Error=>Boolean(cause));
+      const appliedKnown=rollbackErrors.length===0;
+      const message=[...(error instanceof Error?errorMessages(error):[String(error)]),...rollbackErrors.flatMap(cause=>errorMessages(cause).map(message=>`Configuration rollback failed: ${redact(message)}`))].map(redact).join('; ').slice(0,2000);
       const desired=request.config&&deviceMutableConfigurationSchema.safeParse(request.config).success?deviceMutableConfigurationSchema.parse(request.config):applied.desired;
-      const failed:DeviceConfigurationState={desired_revision:desiredRevision||applied.desired_revision,applied_revision:applied.applied_revision,desired,applied:applied.applied,status:(error as {configurationBlocked?:boolean})?.configurationBlocked?'blocked':'failed',error:message};
+      const failed:DeviceConfigurationState={desired_revision:desiredRevision||applied.desired_revision,applied_revision:appliedKnown?applied.applied_revision:null,desired,applied:appliedKnown?applied.applied:null,status:(error as {configurationBlocked?:boolean})?.configurationBlocked&&appliedKnown?'blocked':'failed',error:message};
       if(!(error as {configurationBlocked?:boolean})?.configurationBlocked){try{await this.reconcile(failed);}catch{/** retain failed state for the next explicit retry */}}
       this.applied=failed;await this.persist(failed);return failed;
     }
