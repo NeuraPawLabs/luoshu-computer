@@ -48,15 +48,15 @@ export class DevelopmentSessions {
     agentIdSchema.parse(command.agent);
     const paths={...this.paths},sandboxMode=this.sandboxMode;
     const executable = await this.resolve(command.agent,paths);
-    if (command.mode === 'resume' && !command.agent_session_id) throw new Error('A native Agent session is required to resume');
-    const args = command.mode === 'resume' ? command.agent === 'codex' ? ['resume', command.agent_session_id!] : ['--session', command.agent_session_id!] : [];
+    if (command.mode === 'resume' && !command.engine_session_id) throw new Error('A native Agent session is required to resume');
+    const args = command.mode === 'resume' ? command.agent === 'codex' ? ['resume', command.engine_session_id!] : ['--session', command.engine_session_id!] : [];
     if(command.agent==='codex'&&(this.codexPermissions||sandboxMode)){const mode=sandboxMode??await this.codexPermissions!.mode();args.push('--sandbox',mode);if(mode==='danger-full-access')args.push('-c','approval_policy="never"');}
     const gitEnv=this.gitSshCommand?{GIT_SSH_COMMAND:this.gitSshCommand,GIT_SSH_VARIANT:'ssh'}:{};
     if(command.agent==='codex'&&this.gitSshCommand)args.push('-c','sandbox_workspace_write.network_access=true',...Object.entries(gitEnv).flatMap(([key,value])=>['-c',`shell_environment_policy.set.${key}=${JSON.stringify(value)}`]));
     const release = this.rootPolicy?.acquire(`session:${command.session_id}`, 'session', [command.cwd], async () => { await this.stop(command.session_id, 'directory-access-removed'); }) ?? (() => {});
     let child: pty.IPty;
     try { child = pty.spawn(executable, args, { name: 'xterm-256color', cols: command.cols, rows: command.rows, cwd: command.cwd, env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TERM: 'xterm-256color', ...gitEnv } as Record<string, string> }); } catch (error) { release(); throw error; }
-    const session: DevelopmentSession = { id: command.session_id, agent: command.agent, cwd: command.cwd, mode: command.mode, status: 'running', ...(command.agent_session_id ? { agent_session_id: command.agent_session_id } : {}) };
+    const session: DevelopmentSession = { id: command.session_id, agent: command.agent, cwd: command.cwd, mode: command.mode, status: 'running', ...(command.engine_session_id ? { engine_session_id: command.engine_session_id } : {}) };
     const now = Date.now();
     const record = { spec: command, session, child, output:new PtyOutputBuffer(),pendingOutput:'',flushTimer:undefined as ReturnType<typeof setTimeout>|undefined, timer: undefined as unknown as ReturnType<typeof setTimeout>, stopping: false, createdAt: now, updatedAt: now, release };
     record.timer = setTimeout(() => { void this.stop(command.session_id, 'lease-expired'); }, this.leaseMs);

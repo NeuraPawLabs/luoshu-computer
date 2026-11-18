@@ -7,7 +7,7 @@ import type {CodexSandboxMode} from '../protocol/index.js';
 import {DevelopmentRootPolicy} from '../development/root-policy.js';
 import { runCodex, type CodexResult } from './codex.js';
 import { WorkerState } from './state.js';
-import type { Assignment, ExecutionResult, WorkerEvent, AgentId } from '../protocol/index.js';
+import type { Assignment, ExecutionResult, WorkerEvent, AgentId, DeviceServiceReport } from '../protocol/index.js';
 import { redact } from '../shared/security.js';
 import {budgetDeadline,scheduleDeadline} from '../shared/budgets.js';
 import { prepareWorkspace, collectOutputFiles, MAX_ARCHIVE_ENTRIES } from './files.js';
@@ -39,6 +39,7 @@ export class Executor {
  private readonly checkpoints:CheckpointStore;
  readonly delivery:WorkerDeliveryService;
  constructor(options:ExecutorOptions){this.taskWorkspace=options.taskWorkspace??runTaskWorkspace;this.codexPermissions=options.codexPermissions;this.state=options.state;this.stateDir=options.stateDir;this.emit=options.emit;this.emitLive=options.emitLive??(()=>undefined);this.agents={codex:runCodex,opencode:runOpenCode,...options.agents};this.agentPaths={...options.agentPaths};this.gitSshCommand=options.gitSshCommand;this.rootPolicy=options.rootPolicy??new DevelopmentRootPolicy({roots:options.developmentRoots});this.leaseGraceMs=options.leaseGraceMs??2000;this.checkpoints=options.checkpoints??new CheckpointStore(this.state.db);this.delivery=options.delivery??new WorkerDeliveryService({state:this.state,checkpoints:this.checkpoints,stateDir:this.stateDir,isExecutionActive:id=>this.state.activeAttemptIds().includes(id)});}
+  describe():DeviceServiceReport { const agent=this.agentPaths.codex?'codex':this.agentPaths.opencode?'opencode':null; return {id:'task-execution',type:'task_execution',version:'1',agent_id:agent,status:agent?'ready':'unavailable',reason:agent?null:'agent_not_detected',features:agent?['task_scope','live_progress']:[]}; }
  async runAttempt(assignment:Assignment,leaseMs:number):Promise<ExecutionResult>{
   const existing=this.completions.get(assignment.attempt_id);if(existing)return existing;
   const promise=this.execute(assignment,leaseMs);this.completions.set(assignment.attempt_id,promise);try{return await promise;}finally{this.completions.delete(assignment.attempt_id);}
@@ -74,7 +75,7 @@ export class Executor {
    if(taskScope){scratch=join(workspace.path,'scratch');await mkdir(scratch,{mode:0o700});if(await realpath(scratch)!==scratch)throw Error('Unsafe task scratch directory');}
    const progress=(text:string)=>{void Promise.resolve(this.emitLive(id,epoch,redact(text).slice(0,8000))).catch(()=>undefined);};
    const output=taskScope?await this.taskWorkspace({stateDir:this.stateDir,db:this.state.db,executionId:id,cwd:scratch!,read:[workspace.inputs,...(codebaseWorkspace?.codebases.filter(c=>c.access_mode==='read').map(c=>c.checkout_path)??[])],write:[workspace.outputs,...(codebaseWorkspace?.codebases.filter(c=>c.access_mode==='write').map(c=>c.checkout_path)??[])],prompt,signal:controller.signal,executable,onSession:sessionId=>this.checkpoints.recordSession(id,sessionId),onProgress:progress}):await adapter({sandboxMode,cwd:codebaseWorkspace?.targets??workspace.path,prompt,signal:controller.signal,executable,...(this.gitSshCommand?{env:{GIT_SSH_COMMAND:this.gitSshCommand,GIT_SSH_VARIANT:'ssh'}}:{}),onSession:sessionId=>this.checkpoints.recordSession(id,sessionId),onProgress:text=>{void Promise.resolve(this.emitLive(id,epoch,redact(text).slice(0,8000))).catch(()=>undefined);}});
-   const checkpoint=this.checkpoints.agentFinished(id,{outcome:controller.signal.aborted?'cancelled':output.exitCode===0?'succeeded':'failed',exit_code:output.exitCode,summary:output.summary,session_id:output.sessionId??null,checks:output.checks.map(({command,exit_code})=>({command,exit_code})),output_snapshot_sha256:null,codebases:[]});
+   const checkpoint=this.checkpoints.agentFinished(id,{outcome:controller.signal.aborted?'cancelled':output.exitCode===0?'succeeded':'failed',exit_code:output.exitCode,summary:output.summary,engine_session_id:output.sessionId??null,checks:output.checks.map(({command,exit_code})=>({command,exit_code})),output_snapshot_sha256:null,codebases:[]});
    clearExecutionDeadline();const leaseTimer=this.timers.get(id);if(leaseTimer)clearTimeout(leaseTimer);
    this.state.finish(id,'finished');
    await emit({type:'agent_finished',agent,assignment_sha256:checkpoint.assignment_sha256,checkpoint_version:checkpoint.version,evidence:checkpoint.evidence!});
@@ -84,7 +85,7 @@ export class Executor {
    const packet=await this.delivery.collect(id,'execution_result',controller.signal,codebases);
    const files=packet.files;
    await emit({type:'delivery_ready',delivery:packet});
-   result={status:controller.signal.aborted?'cancelled':output.exitCode===0&&!codebaseFailed?'succeeded':'failed',summary:output.summary,checks:output.checks.map(check=>({...check,output:''})),files,agent,session_id:output.sessionId,codebases,...(output.exitCode!==0?{error:redact(output.summary.trim()||`${agent} exited ${output.exitCode}`).slice(0,2000)}:codebaseFailed?{error:'Codebase result is incomplete'}:{})};
+   result={status:controller.signal.aborted?'cancelled':output.exitCode===0&&!codebaseFailed?'succeeded':'failed',summary:output.summary,checks:output.checks.map(check=>({...check,output:''})),files,agent,engine_session_id:output.sessionId,codebases,...(output.exitCode!==0?{error:redact(output.summary.trim()||`${agent} exited ${output.exitCode}`).slice(0,2000)}:codebaseFailed?{error:'Codebase result is incomplete'}:{})};
   }catch(error){
    const checkpoint=this.checkpoints.read(id),message=redact(String(error)).slice(0,2000);
    if(checkpoint?.evidence){

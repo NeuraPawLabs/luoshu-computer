@@ -60,7 +60,7 @@ export class DevelopmentRootPolicy {
     this.activities.set(id, activity);
     return () => { if (this.activities.get(id) === activity) this.activities.delete(id); };
   }
-  async update(roots: string[] | null, revision: string, stopIds: string[]): Promise<Extract<DevelopmentResult, { action: 'roots_update' }>> {
+  async update(roots: string[] | null, revision: string, stopIds: string[]): Promise<{status:'applied'|'blocked'; state:DevelopmentRootState; blockers:DevelopmentRootBlocker[]}> {
     if (this.updating) throw Error('开发目录正在更新，请稍后重试');
     this.updating = true;
     try {
@@ -68,18 +68,18 @@ export class DevelopmentRootPolicy {
       const next = configured ?? validateDevelopmentRoots([this.home]);
       if (revision === this.revision) {
         if (JSON.stringify(configured) !== JSON.stringify(this.configured)) throw Error('目录配置版本与内容不一致');
-        return { action: 'roots_update', status: 'applied', state: this.state(), blockers: [] };
+        return { status: 'applied', state: this.state(), blockers: [] };
       }
       const narrowing = this.current.some(root => !next.some(allowed => containsDirectory(allowed, root)));
       const affected = () => [...this.activities].filter(([, activity]) =>
         activity.paths.length ? activity.paths.some(path => !next.some(root => containsDirectory(root, path))) : narrowing);
       for (const [id, activity] of affected()) if (stopIds.includes(id) && activity.stop) await activity.stop();
       const blockers = affected().map(([id, activity]) => ({ id, kind: activity.kind, path: activity.paths[0] ?? '整个设备执行环境', stoppable: Boolean(activity.stop) }));
-      if (blockers.length) return { action: 'roots_update', status: 'blocked', state: this.state(), blockers };
+      if (blockers.length) return { status: 'blocked', state: this.state(), blockers };
       if (!this.options.persist) throw Error('当前设备未启用动态目录配置，请更新设备端');
       await this.options.persist(configured, revision);
       this.configured = configured; this.current = next; this.revision = revision;this.changed();
-      return { action: 'roots_update', status: 'applied', state: this.state(), blockers: [] };
+      return { status: 'applied', state: this.state(), blockers: [] };
     } finally { this.updating = false; }
   }
 }

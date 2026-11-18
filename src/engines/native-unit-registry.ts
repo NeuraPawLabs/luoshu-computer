@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {NativeSystemdUnit,type NativeUnitRuntime} from './native-systemd-unit.js';
 
 interface ProcessIdentity {boot:string;pid:number;start:string}
-interface Row {worker_id:string;unit_name:string;owner_token:string;owner_json:string;phase:'reserved'|'committed'|'observed';runtime_json:string|null}
+interface Row {device_id:string;unit_name:string;owner_token:string;owner_json:string;phase:'reserved'|'committed'|'observed';runtime_json:string|null}
 export interface NativeUnitLease {unitName:string;ownerToken:string;committed:()=>void;observed:(runtime:NativeUnitRuntime)=>void;released:()=>void}
 async function processState(pid:number){
  try{const raw=await readFile(`/proc/${pid}/stat`,'utf8'),fields=raw.slice(raw.lastIndexOf(')')+2).split(' ');if(!/^\d+$/u.test(fields[19]??''))throw Error('Native owner identity unknown');return{start:fields[19]!,alive:!['Z','X'].includes(fields[0]!)};}

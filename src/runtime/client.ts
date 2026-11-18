@@ -4,7 +4,7 @@ import { createPrivateKey, sign } from 'node:crypto';
 import WebSocket from 'ws';
 import { buildEnvironmentReport, createIdentity, loadIdentity, loadWorkerConfig, resolveAgentPaths, saveWorkerConfig, validateWorkerConfig, type WorkerConfig } from './environment.js';
 import { WorkerState } from './state.js';
-import { idSchema, maintenanceResultSchema, reportSchema, serverMessageSchema, MAX_WIRE_BYTES, PROTOCOL_VERSION, type Assignment, type MaintenanceRequest, type MaintenanceResult, type ServerMessage, type WorkerMessage, type WorkerReport, type AgentId, type CodebasePrepareRequest, type CodebasePrepareResult } from '../protocol/index.js';
+import { idSchema, maintenanceResultSchema, deviceObservationSchema, serverMessageSchema, MAX_WIRE_BYTES, PROTOCOL_VERSION, type Assignment, type MaintenanceRequest, type MaintenanceResult, type ServerMessage, type WorkerMessage, type DeviceObservation, type AgentId, type CodebasePrepareRequest, type CodebasePrepareResult, type DeviceServiceReport } from '../protocol/index.js';
 import type { DevelopmentService } from '../development/service.js';
 import { LocalGitCredentialStore } from './git-credentials.js';
 import { validateDevelopmentRoots } from '../development/root-policy.js';
@@ -15,24 +15,25 @@ import {engineWireResponseSchema,type EngineWireRequest,type EngineWireResponse}
 export interface WorkerClientOptions {
   stateDir: string;
   config?: WorkerConfig;
-  report?: WorkerReport;
+  report?: DeviceObservation;
   wsFactory?: (url: string) => WebSocket;
   reconnectMinMs?: number;
   reconnectMaxMs?: number;
   development?: DevelopmentService;
-  maintenance?: {execute:(request:MaintenanceRequest,signal:AbortSignal)=>Promise<MaintenanceResult>};
+  maintenance?: {execute:(request:MaintenanceRequest,signal:AbortSignal)=>Promise<MaintenanceResult>;describe?:()=>DeviceServiceReport};
   codebasePreparation?: {prepare:(request:CodebasePrepareRequest)=>Promise<CodebasePrepareResult[]>};
   configController?: WorkerConfigController;
   onAssistantEngineRequest?: (request:EngineWireRequest)=>Promise<EngineWireResponse>;
   nativeAudit?:()=>Promise<'ready'|'login_required'|'permissions_unavailable'|'protocol_unsupported'>;
+  serviceReports?:()=>DeviceServiceReport[];
 }
 
 export class WorkerClient {
   readonly stateDir: string;
   readonly state: WorkerState;
   private config?: WorkerConfig;
-  private report?: WorkerReport;
-  private readonly suppliedReport?:WorkerReport;
+  private report?: DeviceObservation;
+  private readonly suppliedReport?:DeviceObservation;
   private readonly suppliedConfig?:WorkerConfig;
   private authenticated=false;
   private liveProgressSupported=false;
@@ -49,12 +50,12 @@ export class WorkerClient {
   private readonly codebasePreparation?:WorkerClientOptions['codebasePreparation'];
   private readonly configController?: WorkerConfigController;
   private readonly nativeAudit?:WorkerClientOptions['nativeAudit'];
+  private readonly serviceReports?:WorkerClientOptions['serviceReports'];
   onAssistantEngineRequest?: WorkerClientOptions['onAssistantEngineRequest'];
   onAssistantEngineDisconnected?:()=>Promise<void>|void;
   assistantEngineActiveCount:()=>number=()=>0;
   get assistantEngineConnection(){return{authenticated:this.authenticated&&!this.stopped,generation:this.generation};}
   private readonly unsubscribeConfig?:()=>void;
-  private configReportDirty=false;
   private readonly maintenanceControllers=new Map<string,AbortController>();
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private heartbeatTimer?: ReturnType<typeof setInterval>;
@@ -71,8 +72,8 @@ export class WorkerClient {
 
   constructor(options: WorkerClientOptions) {
     this.stateDir = options.stateDir; this.config = options.config; this.suppliedConfig=options.config; this.suppliedReport=options.report;
-    this.state = new WorkerState(`${options.stateDir}/worker.db`); this.configController = options.configController;this.nativeAudit=options.nativeAudit;
-    this.unsubscribeConfig=this.configController?.onApplied(config=>{this.configReportDirty=true;if(this.config)this.config={...this.config,...config,development_roots:config.development_roots??undefined};});
+    this.state = new WorkerState(`${options.stateDir}/worker.db`); this.configController = options.configController;this.nativeAudit=options.nativeAudit;this.serviceReports=options.serviceReports;
+    this.unsubscribeConfig=this.configController?.onApplied(config=>{if(this.config){this.config={...this.config,name:config.name,capacity:config.capacity,agent_paths:config.agent_paths,maintenance_roots:config.maintenance_roots,codex_sandbox:config.codex_sandbox,development_roots:config.development_policy.mode==='home'?undefined:config.development_policy.mode==='custom'?[...config.development_policy.roots]:[]};}});
     this.wsFactory = options.wsFactory ?? (url => new WebSocket(url,{maxPayload:MAX_WIRE_BYTES}));
     this.reconnectMinMs = options.reconnectMinMs ?? 1000; this.reconnectMaxMs = options.reconnectMaxMs ?? 30000;
     this.development = options.development;this.maintenance=options.maintenance;this.codebasePreparation=options.codebasePreparation;this.onAssistantEngineRequest=options.onAssistantEngineRequest;
@@ -89,9 +90,8 @@ export class WorkerClient {
     this.stopped = false;
     if(this.configController)await this.configController.state();
     const identity = await loadIdentity(this.stateDir); const config = this.config;
-    const report = this.suppliedReport ?? await buildEnvironmentReport({name:config.name,capacity:config.capacity,agentPaths:config.agent_paths,nativeAudit:this.nativeAudit});
-    this.report=reportSchema.parse({...report,...(this.development||this.codebasePreparation?{development:true}:{}),...(this.maintenance&&report.tools.git?{maintenance_git:true}:{}),git_credentials:await new LocalGitCredentialStore(this.stateDir).status()});
-    this.report={...this.report,tools:{...this.report.tools,'luoshu.live_progress':'1',...(this.configController?{'luoshu.worker_config':'1'}:{}),...(this.development?.codexPermissions?{'luoshu.codex_permissions':'1'}:{}),...(this.development?.rootPolicy.writable?{'luoshu.development_roots':'1'}:{})}};
+    const report = this.suppliedReport ?? await buildEnvironmentReport({name:config.name,capacity:config.capacity,agentPaths:config.agent_paths,nativeAudit:this.nativeAudit,services:this.describeServices(),gitCredentials:await new LocalGitCredentialStore(this.stateDir).status()});
+    this.report=deviceObservationSchema.parse({...report,git_credentials:await new LocalGitCredentialStore(this.stateDir).status(),services:this.suppliedReport?.services??this.describeServices()});
     this.authenticated=false;this.authSent=false;this.liveProgressSupported=false;this.assignments.clear();this.accepted.clear();
     const ws = this.wsFactory(url.replace(/^http/i, 'ws').replace(/\/$/, '') + '/ws/worker'); this.ws = ws;
     const welcomed=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>{ws.close();reject(new Error('Worker authentication timed out'));},15_000);timer.unref();this.welcomeResolver=()=>{clearTimeout(timer);resolve();};ws.once('close',()=>{clearTimeout(timer);reject(new Error('Worker connection closed before authentication'));});});
@@ -140,16 +140,16 @@ export class WorkerClient {
       if(this.authenticated&&this.generation===generation)await this.send(response);
       return;
     }
-    if(message.type==='worker_config_read'){
+    if(message.type==='device_configuration_read'){
       if(!this.authenticated||!this.configController)return;
       const generation=this.generation,state=await this.configController.state();
-      if(this.authenticated&&generation===this.generation){if(this.configReportDirty)await this.refreshReport();if(this.authenticated&&generation===this.generation)await this.send({type:'worker_config_state',request_id:message.request_id,...state});}
+      if(this.authenticated&&generation===this.generation)await this.send({type:'device_configuration_state',request_id:message.request_id,device_id:config.worker_id,connection_generation:generation,state});
       return;
     }
-    if(message.type==='worker_config_request'){
+    if(message.type==='device_configuration_request'){
       if(!this.authenticated||!this.configController)return;
-      const generation=this.generation,response=await this.configController.apply(message);
-      if(this.authenticated&&generation===this.generation){try{await this.refreshReport();}finally{if(this.authenticated&&generation===this.generation)await this.send(response);}}
+      const generation=this.generation,state=await this.configController.apply(message);
+      if(this.authenticated&&generation===this.generation)await this.send({type:'device_configuration_response',request_id:message.request_id,device_id:config.worker_id,connection_generation:generation,requested_revision:message.desired_revision,status:state.status,state});
       return;
     }
     if(message.type==='execution_delivery_imported'){
@@ -182,9 +182,9 @@ export class WorkerClient {
     }
     if (message.type === 'challenge') {
       if(this.authenticated||this.authSent)return;const workerId=config.worker_id;this.authSent=true;
-      const payload = `luoshu:worker:v${PROTOCOL_VERSION}:${message.nonce}:${workerId}`;
+      const payload = `luoshu:device:v${PROTOCOL_VERSION}:${message.nonce}:${workerId}:${message.connection_generation}`;
       const signature = sign(null, Buffer.from(payload, 'utf8'), createPrivateKey(privateKeyPem)).toString('base64url');
-      await this.send({ type: 'auth', worker_id: workerId, signature, report: this.report! });
+      await this.send({ type: 'auth', device_id: workerId, connection_generation:message.connection_generation, signature, report: this.report! });
     } else if (message.type === 'offer') {
       if(!this.authenticated)return;
       if (!this.authorized(message.assignment)) {
@@ -219,9 +219,9 @@ export class WorkerClient {
       if(!this.authenticated)return;
       if (message.accepted) this.state.ack(message.attempt_id, message.sequence);
     } else if (message.type === 'welcome') {
-      if(!this.authSent){this.ws?.close(1008,'Authentication challenge required');return;}if(message.worker_id!==config.worker_id||this.authenticated)return;this.authenticated=true;
+      if(!this.authSent){this.ws?.close(1008,'Authentication challenge required');return;}if(message.device_id!==config.worker_id||this.authenticated)return;this.authenticated=true;
       this.welcomeResolver?.();this.welcomeResolver=undefined;
-      this.generation=message.generation;this.liveProgressSupported=message.live_progress===true;
+      this.generation=message.connection_generation;this.liveProgressSupported=message.live_progress===true;
       if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
       this.heartbeatTimer=setInterval(()=>{void this.send({type:'heartbeat',active:this.state.activeAttemptIds()}).catch(()=>undefined);},message.heartbeat_ms);
       await this.send({type:'heartbeat',active:this.state.activeAttemptIds()});
@@ -229,13 +229,19 @@ export class WorkerClient {
     }
   }
 
+  private describeServices():DeviceServiceReport[] {
+    const services:DeviceServiceReport[]=[];
+    if(this.development)services.push(this.development.describe());
+    if(this.maintenance?.describe)services.push(this.maintenance.describe());
+    if(this.serviceReports)services.push(...this.serviceReports());
+    return services;
+  }
   private async refreshReport():Promise<void>{
     this.config=await loadWorkerConfig(this.stateDir);
-    const detected=await buildEnvironmentReport({name:this.config.name,capacity:this.config.capacity,agentPaths:this.config.agent_paths,nativeAudit:this.nativeAudit});
+    const detected=await buildEnvironmentReport({name:this.config.name,capacity:this.config.capacity,agentPaths:this.config.agent_paths,nativeAudit:this.nativeAudit,services:this.describeServices(),gitCredentials:await new LocalGitCredentialStore(this.stateDir).status()});
     const previous=this.report!;
-    const markers=Object.fromEntries(Object.entries(previous.tools).filter(([key])=>key.startsWith('luoshu.')));
-    this.report={...previous,...detected,tools:{...detected.tools,...markers},revision:previous.revision+1};
-    await this.send({type:'report',report:this.report});this.configReportDirty=false;
+    this.report=deviceObservationSchema.parse({...detected,report_revision:previous.report_revision+1});
+    await this.send({type:'report',device_id:this.config.worker_id,connection_generation:this.generation,report:this.report});
   }
 
   private authorized(assignment: Assignment): boolean {
@@ -260,14 +266,14 @@ export async function pairWorker(options:{stateDir:string;url:string;code:string
  const maintenanceRoots=validateDevelopmentRoots(options.maintenanceRoots??[]);
  const paths=await resolveAgentPaths({agentPaths:{...(options.codexPath?{codex:options.codexPath}:{}),...(options.opencodePath?{opencode:options.opencodePath}:{})}});
  const report=await buildEnvironmentReport({name:options.name,capacity:options.capacity,agentPaths:paths});const identity=await createIdentity(options.stateDir);
- const response=await (options.fetchImpl??fetch)(`${options.url.replace(/\/$/,'')}/api/worker/join`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:options.code,public_key:identity.publicKey,report})});
+ const response=await (options.fetchImpl??fetch)(`${options.url.replace(/\/$/,'')}/api/devices/join`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code:options.code,name:options.name,public_key:identity.publicKey})});
  if(!response.ok)throw new Error(`Pairing failed (${response.status})`);
- const body=await response.json() as {worker_id:string;status:string};idSchema.parse(body.worker_id);if(body.status!=='pending')throw new Error('Invalid pairing response');
- await saveWorkerConfig(options.stateDir,{worker_id:body.worker_id,url:options.url,name:options.name,capacity:options.capacity,agent_paths:paths,
+ const body=await response.json() as {device_id:string;status:string};idSchema.parse(body.device_id);if(body.status!=='pending')throw new Error('Invalid pairing response');
+ await saveWorkerConfig(options.stateDir,{worker_id:body.device_id,url:options.url,name:options.name,capacity:options.capacity,agent_paths:paths,
   ...(options.releaseUrl===undefined?{}:{release_url:options.releaseUrl,release_public_key:options.releasePublicKey}),
   ...(options.releaseRepository===undefined?{}:{release_repository:options.releaseRepository,release_public_key:options.releasePublicKey}),
   ...(developmentRoots===undefined?{}:{development_roots:developmentRoots}),maintenance_roots:maintenanceRoots,codex_sandbox:codexSandbox});
- return{workerId:body.worker_id,status:body.status};
+ return{workerId:body.device_id,status:body.status};
 }
 
 function assertSecureUrl(value: string): void {

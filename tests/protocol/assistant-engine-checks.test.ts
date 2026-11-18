@@ -8,9 +8,9 @@ test('native check tools accept purpose or saved check ID, never caller identiti
  expect(()=>nativeCheckOperationSchema.parse({action:'end',check_id:'check',purpose:'changed'})).toThrow();
 });
 test('delivery seals check claims, content, binding and commands without accepting fabricated successful checks',()=>{
- const target={kind:'outputs' as const,sha256:'a'.repeat(64)},command={thread_id:'thread',turn_id:'turn',item_id:'cmd',command:'test',cwd:'/work',status:'completed' as const,exit_code:0,duration_ms:1};
- const check={check_id:'check',thread_id:'thread',turn_id:'turn',purpose:'test',command_ids:['cmd'],before:[target],after:[target],status:'passed' as const,binding:'current' as const};
- const value={session_id:'s',submission_id:'sub',run_id:'run',delivery_id:'d',source_sha256:target.sha256,files:[],commands:[command],content:[target],checks:[check]};
+ const target={kind:'outputs' as const,sha256:'a'.repeat(64)},command={native_thread_id:'thread',turn_id:'turn',item_id:'cmd',command:'test',cwd:'/work',status:'completed' as const,exit_code:0,duration_ms:1};
+ const check={check_id:'check',native_thread_id:'thread',turn_id:'turn',purpose:'test',command_ids:['cmd'],before:[target],after:[target],status:'passed' as const,binding:'current' as const};
+ const value={engine_session_id:'s',submission_id:'sub',run_id:'run',delivery_id:'d',source_sha256:target.sha256,files:[],commands:[command],content:[target],checks:[check]};
  const packet=sealNativeDelivery(value);expect(verifyNativeDelivery(packet)).toEqual(packet);
  expect(()=>verifyNativeDelivery({...packet,checks:[{...check,purpose:'different'}]})).toThrow(/hash/);
  expect(()=>sealNativeDelivery({...value,commands:[]})).toThrow(/command/);
@@ -21,7 +21,7 @@ test('delivery seals check claims, content, binding and commands without accepti
  expect(()=>verifyNativeDelivery({...ordered,checks:[second,check]})).toThrow(/hash/);
 });
 test('check evidence is scoped to native command IDs and explicit content fingerprints',()=>{
- const target={kind:'outputs',sha256:'a'.repeat(64)},receipt={check_id:'check',thread_id:'thread',turn_id:'turn',purpose:'tests',command_ids:['cmd'],before:[target],after:[target],status:'passed'};
+ const target={kind:'outputs',sha256:'a'.repeat(64)},receipt={check_id:'check',native_thread_id:'thread',turn_id:'turn',purpose:'tests',command_ids:['cmd'],before:[target],after:[target],status:'passed'};
  expect(nativeCheckReceiptSchema.parse(receipt)).toEqual(receipt);
  for(const patch of [{command_ids:[]},{command_ids:['cmd','cmd']},{after:[{...target,sha256:'b'.repeat(64)}]},{stdout:'raw'}])expect(()=>nativeCheckReceiptSchema.parse({...receipt,...patch})).toThrow();
 });

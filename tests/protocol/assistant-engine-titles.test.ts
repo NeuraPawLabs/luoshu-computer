@@ -25,7 +25,7 @@ test('native title tool only accepts title metadata and explains ordinary-turn n
  expect(protocol.parseNativeTitleTool('luoshu_conversation_title',{title:' topic ',expected_version:0})).toEqual({title:'topic',expected_version:0});
  expect(protocol.parseNativeTitleTool('luoshu_thread_title',{title:' thread ',expected_version:1})).toEqual({title:'thread',expected_version:1});
  expect(()=>protocol.parseNativeTitleTool('luoshu_task_create',{title:'topic',expected_version:0})).toThrow(/unsupported/i);
- for(const extra of [{owner_id:'alice'},{path:'/tmp'},{conversation_id:'room'},{action:'create'}])expect(()=>protocol.parseNativeTitleTool('luoshu_conversation_title',{title:'topic',expected_version:0,...extra})).toThrow();
+ for(const extra of [{owner_id:'alice'},{path:'/tmp'},{session_id:'room'},{action:'create'}])expect(()=>protocol.parseNativeTitleTool('luoshu_conversation_title',{title:'topic',expected_version:0,...extra})).toThrow();
 });
 
 test('title requests append to the event union without changing reply result schemas',()=>{
@@ -37,7 +37,7 @@ test('title requests append to the event union without changing reply result sch
 });
 
 test('title response wire requires every control identity and exact result receipt',()=>{
- const control={request_id:'request',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,turn_id:'native-turn',call_id:'native-call'};
+ const control={request_id:'request',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,turn_id:'native-turn',call_id:'native-call'};
  const request={action:'title_response',...control,result:{success:true,updated:true,title:'公司研究',version:2}};
  expect(protocol.engineWireRequestSchema.safeParse(request).success).toBe(true);
  expect(protocol.engineWireResponseSchema.safeParse({action:'title_response',...control}).success).toBe(true);
@@ -45,6 +45,6 @@ test('title response wire requires every control identity and exact result recei
   const missing={...request} as Record<string,unknown>;delete missing[field];
   expect(protocol.engineWireRequestSchema.safeParse(missing).success).toBe(false);
  }
- for(const extra of [{owner_id:'alice'},{path:'/tmp'},{thread_id:'caller-thread'}])expect(protocol.engineWireRequestSchema.safeParse({...request,...extra}).success).toBe(false);
+ for(const extra of [{owner_id:'alice'},{path:'/tmp'},{native_thread_id:'caller-thread'}])expect(protocol.engineWireRequestSchema.safeParse({...request,...extra}).success).toBe(false);
  expect(protocol.engineWireResponseSchema.safeParse(request).success).toBe(false);
 });

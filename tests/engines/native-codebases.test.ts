@@ -18,7 +18,7 @@ async function fixture(){
  await writeFile(join(source,'index.txt'),'base');await git(['add','.']);await git(['commit','-m','initial']);const base=await git(['rev-parse','HEAD']);
  const db=new Database(':memory:'),service=new NativeCodebases(db,{stateDir:state,allowedRoots:()=>[source]});
  const spec={id:'11111111-1111-4111-8111-111111111111',alias:'app',access_mode:'write' as const,source:{kind:'local' as const,path:source},root_path:'.',default_branch:'main'};
- const input={session_id:'session',run_id:'run',submission_id:'submission',codebases:[spec]};
+ const input={engine_session_id:'session',run_id:'run',submission_id:'submission',codebases:[spec]};
  return{root,source,state,git,base,db,service,spec,input,close:async()=>{db.close();await workspaceHelpers.removeCodebaseWorkspace(join(state,'runs','run','references','app'));await rm(root,{recursive:true,force:true});}};
 }
 test('native Codebase journal pins real source commit and coalesces repeat preparation across service restart',async()=>{
@@ -39,7 +39,7 @@ test('native Codebase cancellation stops an in-flight real Git SSH operation wit
   const service=new NativeCodebases(f.db,{stateDir:f.state,allowedRoots:()=>[],gitSshCommand:helper}),input={...f.input,codebases:[{...f.spec,source:{kind:'git' as const,repository_url:'ssh://fixture.invalid/project.git'}}]};
   work=service.prepare(input);void work.catch(()=>{});
   await expect.poll(()=>readFile(pidFile,'utf8').catch(()=>null),{timeout:5000}).not.toBeNull();
-  await expect(service.cancel({...input,session_id:'foreign'})).rejects.toThrow(/identity/i);
+  await expect(service.cancel({...input,engine_session_id:'foreign'})).rejects.toThrow(/identity/i);
   await service.cancel(input);await expect(work).rejects.toThrow(/cancel|abort/i);
   expect(f.db.prepare('SELECT state,assignments_json FROM assistant_native_codebases').get()).toEqual({state:'resolving',assignments_json:null});
   const pid=Number(await readFile(pidFile,'utf8'));
@@ -72,7 +72,7 @@ test.each(['source','session','submission','root'] as const)('native preparation
  const f=await fixture();try{
   const first=await f.service.prepare(f.input);await writeFile(join(first.write[0],'work.txt'),'preserve');
   const next=structuredClone(f.input);
-  if(change==='source')next.codebases[0].default_branch='other';if(change==='root')next.codebases[0].root_path='subdir';if(change==='session')next.session_id='foreign';if(change==='submission')next.submission_id='foreign';
+  if(change==='source')next.codebases[0].default_branch='other';if(change==='root')next.codebases[0].root_path='subdir';if(change==='session')next.engine_session_id='foreign';if(change==='submission')next.submission_id='foreign';
   await expect(f.service.prepare(next)).rejects.toThrow(/identity|conflict/);expect(await readFile(join(first.write[0],'work.txt'),'utf8')).toBe('preserve');
  }finally{await f.close();}
 });
@@ -89,7 +89,7 @@ test('native preparation saves pin before checkout failure and never follows cha
 test('cancellation identity alone cannot authorize deletion of an unowned partial directory',async()=>{
  const f=await fixture();try{
   const service=new NativeCodebases(f.db,{stateDir:f.state,allowedRoots:()=>[]}),input={...f.input,codebases:[{...f.spec,source:{kind:'git' as const,repository_url:'ssh://fixture.invalid/project.git'}}]};new CodexSessionStore(f.db);
-  f.db.prepare("INSERT INTO assistant_native_codebases VALUES(?,?,?,?,NULL,'resolving')").run(input.run_id,input.session_id,input.submission_id,JSON.stringify(input.codebases));f.db.prepare('INSERT INTO codex_cancelled_preparations VALUES(?,?)').run(input.submission_id,JSON.stringify(input));
+  f.db.prepare("INSERT INTO assistant_native_codebases VALUES(?,?,?,?,NULL,'resolving')").run(input.run_id,input.engine_session_id,input.submission_id,JSON.stringify(input.codebases));f.db.prepare('INSERT INTO codex_cancelled_preparations VALUES(?,?)').run(input.submission_id,JSON.stringify(input));
   await mkdir(join(f.state,'runs',input.run_id,'targets','app'),{recursive:true});await writeFile(join(f.state,'runs',input.run_id,'targets','app','partial.txt'),'partial');
   await expect(service.cleanupSession('session')).rejects.toThrow(/settled|ownership/);expect((await lstat(join(f.state,'runs','run','targets'))).isDirectory()).toBe(true);expect(await readFile(join(f.state,'runs','run','targets','app','partial.txt'),'utf8')).toBe('partial');expect(()=>f.db.transaction(()=>service.purgeSessionData('session'))()).toThrow(/settled|ownership/);
  }finally{await f.close();}
@@ -108,15 +108,15 @@ test('cancelled creator-owned partial Run can be cleaned after preparation has d
   const prepared=await f.service.prepare(f.input);await writeFile(join(prepared.workspace.path,'partial-marker'),'retain until cleanup');
   f.db.prepare("UPDATE assistant_native_codebases SET state='pinned' WHERE run_id=?").run(f.input.run_id);
   const cancelled=new NativeCodebases(f.db,{stateDir:f.state,allowedRoots:()=>[f.source],isPreparationCancelled:identity=>identity.run_id===f.input.run_id});
-  await cancelled.cleanupSession(f.input.session_id);await expect(lstat(prepared.workspace.path)).rejects.toMatchObject({code:'ENOENT'});
-  f.db.transaction(()=>cancelled.purgeSessionData(f.input.session_id))();expect(f.db.prepare('SELECT * FROM native_codebase_workspace_owners').all()).toEqual([]);
+  await cancelled.cleanupSession(f.input.engine_session_id);await expect(lstat(prepared.workspace.path)).rejects.toMatchObject({code:'ENOENT'});
+  f.db.transaction(()=>cancelled.purgeSessionData(f.input.engine_session_id))();expect(f.db.prepare('SELECT * FROM native_codebase_workspace_owners').all()).toEqual([]);
  }finally{await f.close();}
 });
 test('foreign Git index lock blocks Codebase cleanup and preserves the checkout',async()=>{
  const f=await fixture();try{
   const prepared=await f.service.prepare(f.input),lock=join(prepared.workspace.codebases[0].repository_path,'.git','index.lock');await writeFile(lock,'foreign lock');
-  await expect(f.service.cleanupSession(f.input.session_id)).rejects.toThrow(/Git lock|index\.lock|publication/i);
-  expect(await readFile(lock,'utf8')).toBe('foreign lock');await rm(lock);await f.service.cleanupSession(f.input.session_id);await expect(lstat(prepared.workspace.path)).rejects.toMatchObject({code:'ENOENT'});
+  await expect(f.service.cleanupSession(f.input.engine_session_id)).rejects.toThrow(/Git lock|index\.lock|publication/i);
+  expect(await readFile(lock,'utf8')).toBe('foreign lock');await rm(lock);await f.service.cleanupSession(f.input.engine_session_id);await expect(lstat(prepared.workspace.path)).rejects.toMatchObject({code:'ENOENT'});
  }finally{await f.close();}
 });
 test('local root authorization and partial workspace survive rejection',async()=>{
@@ -188,7 +188,7 @@ test('codebase purge removes scoped commit contents only for its session inside 
   const input={...f.input,codebases:[{...f.spec,root_path:'app'}]};
   const own=await f.service.prepare(input);await writeFile(join(own.write[0],'main.txt'),'private change');
   await f.service.collect(input,true);
-  const foreignInput={...input,session_id:'foreign',run_id:'foreign-run',submission_id:'foreign-sub'};
+  const foreignInput={...input,engine_session_id:'foreign',run_id:'foreign-run',submission_id:'foreign-sub'};
   const foreign=await f.service.prepare(foreignInput);await writeFile(join(foreign.write[0],'main.txt'),'foreign change');await f.service.collect(foreignInput,true);
   expect(f.db.prepare('SELECT COUNT(*) AS n FROM native_codebase_commits').get()).toEqual({n:2});
   const retained={workspace:f.db.prepare("SELECT * FROM assistant_native_codebases WHERE session_id='foreign'").get(),commit:f.db.prepare("SELECT * FROM native_codebase_commits WHERE run_id='foreign-run'").get()};

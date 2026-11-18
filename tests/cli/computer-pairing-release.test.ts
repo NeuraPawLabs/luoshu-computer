@@ -12,7 +12,7 @@ test('pairing persists the local release source without sending it to Core or tr
   await pairWorker({stateDir,url:'https://core.test',name:'desk',code:'single-use',capacity:1,releaseUrl:'https://downloads.test/computer',releasePublicKey,
    codexPath:'/missing/codex',opencodePath:'/missing/opencode',fetchImpl:async(_input,init)=>{
     const payload=JSON.parse(String(init?.body));expect(payload).not.toHaveProperty('release_url');expect(JSON.stringify(payload)).not.toContain(releasePublicKey);
-    return Response.json({worker_id:'worker_1',status:'pending',release_url:'https://attacker.test',release_public_key:'untrusted'});
+    return Response.json({device_id:'worker_1',status:'pending',release_url:'https://attacker.test',release_public_key:'untrusted'});
    }});
   expect(await loadWorkerConfig(stateDir)).toMatchObject({release_url:'https://downloads.test/computer',release_public_key:releasePublicKey});
  }finally{await rm(stateDir,{recursive:true,force:true});}

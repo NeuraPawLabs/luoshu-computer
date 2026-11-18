@@ -36,7 +36,7 @@ test('metadata controls have strict read, candidate and failure result shapes',(
 test('knowledge requests and replies preserve the native control identity without task effects',()=>{
  const operation={action:'read' as const,snapshot_id:'snapshot',entry_id:'entry',revision:1};
  expect(engineEventPayloadSchema.parse({kind:'knowledge.request',request_id:'call',operation})).toEqual({kind:'knowledge.request',request_id:'call',operation});
- const control={action:'knowledge_response',request_id:'response',session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1,turn_id:'turn',call_id:'call'};
+ const control={action:'knowledge_response',request_id:'response',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1,turn_id:'turn',call_id:'call'};
  expect(engineWireRequestSchema.parse({...control,result:{success:false,error:'source stale'}})).toMatchObject(control);
  expect(engineWireResponseSchema.parse(control)).toEqual(control);
  expect(engineWireResponseSchema.safeParse({...control,result:{success:false,error:'private'}}).success).toBe(false);

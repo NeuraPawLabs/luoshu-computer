@@ -58,9 +58,9 @@ test('keeps ordinary Codex sources and applies truncation only to resumable conv
 test('rejects stale Codex child resume requests before starting a PTY and keeps history readable', async () => {
   const { root, codexHome } = await fixture();
   const service = new DevelopmentService({ roots: [root], codexHome, agentPaths: { codex: '/missing/codex' } });
-  await expect(service.handle({ action: 'open', session_id: 'stale', agent: 'codex', cwd: root, mode: 'resume', agent_session_id: 'child-0', cols: 80, rows: 24 })).rejects.toThrow(/子代理.*主会话/);
+  await expect(service.handle({ action: 'open', session_id: 'stale', agent: 'codex', cwd: root, mode: 'resume', engine_session_id: 'child-0', cols: 80, rows: 24 })).rejects.toThrow(/子代理.*主会话/);
   expect(service.active()).toBe(0);
-  await expect(service.handle({ action: 'history', agent: 'codex', path: root, session_id: 'child-0' })).resolves.toMatchObject({ text: 'Codex\nSaved child reply\n\n' });
+  await expect(service.handle({ action: 'history', agent: 'codex', path: root, engine_session_id: 'child-0' })).resolves.toMatchObject({ text: 'Codex\nSaved child reply\n\n' });
 });
 
 test('resumes the selected parent with its native ID', async () => {
@@ -69,7 +69,7 @@ test('resumes the selected parent with its native ID', async () => {
   await writeFile(executable, '#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify(process.argv.slice(2)));\n', { mode: 0o755 });
   const service = new DevelopmentService({ roots: [root], codexHome, agentPaths: { codex: executable } });
   try {
-    await service.handle({ action: 'open', session_id: 'main', agent: 'codex', cwd: root, mode: 'resume', agent_session_id: 'parent', cols: 80, rows: 24 });
+    await service.handle({ action: 'open', session_id: 'main', agent: 'codex', cwd: root, mode: 'resume', engine_session_id: 'parent', cols: 80, rows: 24 });
     await expect.poll(async () => {
       const result = await service.handle({ action: 'read', session_id: 'main', after: 0 });
       return result.action === 'read' && result.session.status === 'exited' ? result.chunks.map(chunk => chunk.data).join('') : '';

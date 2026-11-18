@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {z} from 'zod';
 import {withOutputRoot,removeOwnedWorkspace,type OwnedDirectoryIdentity} from '../runtime/files.js';
 
-interface Row {session_key:string;workspace_id:string;cwd:string;owner_json:string|null;state:'reserved'|'owned'|'removed'}
+interface Row {session_key:string;execution_workspace_id:string;cwd:string;owner_json:string|null;state:'reserved'|'owned'|'removed'}
 const id=z.string().regex(/^[A-Za-z0-9_-]{1,100}$/u);
 const digits=z.string().regex(/^\d+$/u);
 const identitySchema=z.object({dev:digits,ino:digits,parent_dev:digits,parent_ino:digits}).strict();
@@ -17,7 +17,7 @@ export class NativeWorkspaceRoots {
  constructor(private db:Database.Database,private stateDir:string){db.exec(`CREATE TABLE IF NOT EXISTS native_workspace_owners(
   session_key TEXT PRIMARY KEY,workspace_id TEXT NOT NULL UNIQUE,cwd TEXT NOT NULL UNIQUE,
   owner_json TEXT,state TEXT NOT NULL);`);}
- private row(session:string){return this.db.prepare('SELECT * FROM native_workspace_owners WHERE session_key=?').get(session) as Row|undefined;}
+ private row(session:string){return this.db.prepare('SELECT session_key,workspace_id AS execution_workspace_id,cwd,owner_json,state FROM native_workspace_owners WHERE session_key=?').get(session) as Row|undefined;}
  private async parent(){return join(await realpath(this.stateDir),'assistant-engine-workspaces');}
  async prepare(workspace:string,session:string):Promise<string>{
   id.parse(workspace);id.parse(session);
@@ -32,7 +32,7 @@ export class NativeWorkspaceRoots {
    const prior=this.row(session),other=this.db.prepare('SELECT session_key FROM native_workspace_owners WHERE workspace_id=? OR cwd=?').get(workspace,cwd) as {session_key:string}|undefined;
    if(other&&other.session_key!==session)throw Error('Native workspace already belongs to another session');
    if(prior){
-    if(prior.cwd!==cwd||prior.workspace_id!==workspace)throw Error('Native workspace binding changed');
+    if(prior.cwd!==cwd||prior.execution_workspace_id!==workspace)throw Error('Native workspace binding changed');
     if(prior.state!=='owned'||!prior.owner_json)throw Error('Native workspace creation or removal remains unresolved');
     await this.verify(prior);return cwd;
    }
@@ -53,10 +53,10 @@ export class NativeWorkspaceRoots {
  }
  private async verify(row:Row,allowMissing=false):Promise<void>{
   const parent=await this.parent();
-  if(row.cwd!==join(parent,id.parse(row.workspace_id)))throw Error('Native workspace owner path changed');
+  if(row.cwd!==join(parent,id.parse(row.execution_workspace_id)))throw Error('Native workspace owner path changed');
   const owner=identitySchema.parse(JSON.parse(row.owner_json!));
   await withOutputRoot(parent,async directory=>{
-   const p=await directory.stat({bigint:true}),path=join('/proc/self/fd/'+directory.fd,row.workspace_id);
+   const p=await directory.stat({bigint:true}),path=join('/proc/self/fd/'+directory.fd,row.execution_workspace_id);
    if(String(p.dev)!==owner.parent_dev||String(p.ino)!==owner.parent_ino)throw Error('Native workspace parent identity changed');
    let c;try{c=await lstat(path,{bigint:true});}catch(error){if(allowMissing&&(error as NodeJS.ErrnoException).code==='ENOENT')return;throw error;}
    if(!c.isDirectory()||c.isSymbolicLink()||String(c.dev)!==owner.dev||String(c.ino)!==owner.ino)throw Error('Native workspace directory identity changed');
@@ -66,7 +66,7 @@ export class NativeWorkspaceRoots {
   current();id.parse(session);if(this.creating.has(session))throw Error('Native workspace preparation is not settled');
   const row=this.row(session);if(!row){if(cwd)throw Error('Native workspace ownership missing');return;}
   const parent=await this.parent();current();
-  if(row.cwd!==join(parent,id.parse(row.workspace_id))||cwd!==undefined&&cwd!==row.cwd)throw Error('Native workspace owner path changed');
+  if(row.cwd!==join(parent,id.parse(row.execution_workspace_id))||cwd!==undefined&&cwd!==row.cwd)throw Error('Native workspace owner path changed');
   const original=JSON.stringify(row),check=()=>{current();if(JSON.stringify(this.row(session))!==original)throw Error('Native workspace ownership changed during cleanup');};
   if((row.state==='owned'||row.state==='removed')&&row.owner_json){
    if(row.state==='owned')await removeOwnedWorkspace(row.cwd,check,identitySchema.parse(JSON.parse(row.owner_json)));else await this.verify(row,true);check();
@@ -74,7 +74,7 @@ export class NativeWorkspaceRoots {
    // A creator crash before pinning is not ownership proof. Missing is safe
    // to forget after caller quiescence; an existing unpinned root is retained.
    await withOutputRoot(parent,async directory=>{
-    try{await lstat(join('/proc/self/fd/'+directory.fd,row.workspace_id));}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return;throw e;}
+    try{await lstat(join('/proc/self/fd/'+directory.fd,row.execution_workspace_id));}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return;throw e;}
     throw Error('Native workspace ownership or removed state is unresolved');
    });check();
   }

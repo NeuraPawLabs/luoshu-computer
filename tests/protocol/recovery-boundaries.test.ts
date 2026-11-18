@@ -4,7 +4,7 @@ import * as p from '../../src/protocol/index.js';
 import * as hashing from '../../src/protocol/recovery-hash.js';
 
 const command={type:'execution_recovery_request',request_id:'r1',operation_id:'op1',execution_id:'e1',assignment_sha256:'a'.repeat(64),connection_generation:1,expected_checkpoint_version:1,lease_ms:120000,action:'inspect_result',delivery_id:null};
-const evidence={outcome:'succeeded',exit_code:0,summary:'done',session_id:null,checks:[],output_snapshot_sha256:null,codebases:[]};
+const evidence={outcome:'succeeded',exit_code:0,summary:'done',engine_session_id:null,checks:[],output_snapshot_sha256:null,codebases:[]};
 const packet=()=>({
  execution_id:'e1',delivery_id:'d1',assignment_sha256:'a'.repeat(64),checkpoint_version:1,
  purpose:'execution_result' as const,agent:'codex' as const,evidence:{...evidence,outcome:'succeeded' as const},

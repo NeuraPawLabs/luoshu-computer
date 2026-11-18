@@ -2,16 +2,17 @@ import type { CodebasePrepareRequest } from '../protocol/index.js';
 import { updateWorkerConfig, type WorkerConfig } from '../runtime/environment.js';
 import { prepareCodebaseWorkspace, resolveCodebaseAssignments } from '../runtime/codebase-workspace.js';
 import { DevelopmentRootPolicy } from './root-policy.js';
+import {mutableConfig} from '../runtime/config-controller.js';
 
 export function runtimeDevelopmentRoots(stateDir: string, config: WorkerConfig) {
-  // Preserve the historical maintenance scope while separating all future edits.
-  const maintenanceRoots = config.maintenance_roots ?? config.development_roots ?? [];
-  return new DevelopmentRootPolicy({ roots: config.development_roots, revision: config.development_roots_revision,
+  const current=mutableConfig(config);
+  return new DevelopmentRootPolicy({
+    roots: current.development_policy.mode==='home'?null:current.development_policy.mode==='custom'?[...current.development_policy.roots]:[],
+    revision: config.development_roots_revision ?? config.worker_config_revision,
     persist: async (roots, revision) => {
       await updateWorkerConfig(stateDir, latest=>{
-        const { development_roots: _previous, ...rest } = latest;
-        return { ...rest, ...(roots === null ? {} : { development_roots: roots }),
-          development_roots_revision: revision, maintenance_roots: latest.maintenance_roots ?? maintenanceRoots };
+        const {development_roots:_previous,...rest}=latest;
+        return {...rest,...(roots===null?{}:{development_roots:roots}),development_roots_revision:revision,worker_config_revision:revision};
       });
     },
   });

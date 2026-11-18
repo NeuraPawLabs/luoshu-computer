@@ -45,7 +45,7 @@ test('invalid paths and failed persistence retain policy; changing policy blocks
 
 test('live roots update persists without restart and stops only the confirmed PTY',async()=>{
  const {root,a,b}=await fixture(),stateDir=join(root,'state');await mkdir(stateDir);
- const config={worker_id:'worker-1',url:'https://example.test',name:'test',capacity:2,development_roots:[a]};
+ const config={worker_id:'worker-1',url:'https://example.test',name:'test',capacity:2,development_roots:[a],maintenance_roots:[a]};
  await saveWorkerConfig(stateDir,config);
  const policy=runtimeDevelopmentRoots(stateDir,config),agent=join(root,'agent');
  await writeFile(agent,'#!/usr/bin/env node\nprocess.stdin.resume();process.stdout.write("ready");\n',{mode:0o755});
@@ -53,12 +53,12 @@ test('live roots update persists without restart and stops only the confirmed PT
  const open=async(id:string,cwd:string)=>service.handle({action:'open',session_id:id,agent:'codex',mode:'new',cwd,cols:80,rows:24});
  try{
   await expect(open('denied',b)).rejects.toThrow(/allowed/);
-  await service.handle({action:'roots_update',roots:[a,b],revision:randomUUID(),stop_ids:[]});
+  await policy.update([a,b],randomUUID(),[]);
   await open('first',a);await open('second',b);
-  const revision=randomUUID(),blocked=await service.handle({action:'roots_update',roots:[b],revision,stop_ids:[]});
+  const revision=randomUUID(),blocked=await policy.update([b],revision,[]);
   expect(blocked).toMatchObject({status:'blocked',blockers:[{id:'session:first',path:a}]});
   expect(service.sessions.read('first',0).session.status).toBe('running');
-  await service.handle({action:'roots_update',roots:[b],revision,stop_ids:['session:first']});
+  await policy.update([b],revision,['session:first']);
   expect(service.sessions.read('first',0).session.status).toBe('exited');
   expect(service.sessions.read('second',0).session.status).toBe('running');
   expect(await service.handle({action:'roots'})).toEqual({action:'roots',roots:[b]});

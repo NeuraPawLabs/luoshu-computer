@@ -76,7 +76,7 @@ export class TaskCodebaseResults {
    }
    const gitDir=this.metadata(workspace,prepared),row=this.db.prepare('SELECT * FROM task_codebase_baselines WHERE execution_id=? AND codebase_id=?').get(assignment.attempt_id,codebase.id) as Row|undefined;
    if(!row||row.scope_json!==this.scope(assignment,codebase,prepared,gitDir))throw Error('Task Codebase baseline missing');
-   const result=await this.commits.collect({run_id:assignment.attempt_id,session_id:'task:'+assignment.attempt_id,submission_id:assignment.attempt_id},
+   const result=await this.commits.collect({run_id:assignment.attempt_id,engine_session_id:'task:'+assignment.attempt_id,submission_id:assignment.attempt_id},
     {...codebase,base_commit:row.base_commit},prepared,current,{gitDir,wholeRepository:true});current();
    const paths=(await this.git(gitDir,prepared.repository_path,['diff','--no-ext-diff','--no-textconv','--no-renames','--name-only','-z',codebase.base_commit+'..'+result.head_commit,'--'],true)).split('\0').filter(Boolean);
    const prefix=codebase.root_path==='.'?'':codebase.root_path+'/';

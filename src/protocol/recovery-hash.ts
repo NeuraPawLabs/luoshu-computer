@@ -11,7 +11,7 @@ function canonical(value:unknown):string{
 }
 export const sha256=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex');
 export function assertCompletionEvidence(previous:AgentEvidence,next:AgentEvidence):void{
- const fact=(e:AgentEvidence)=>({outcome:e.outcome,exit_code:e.exit_code,summary:e.summary,session_id:e.session_id,checks:e.checks});
+ const fact=(e:AgentEvidence)=>({outcome:e.outcome,exit_code:e.exit_code,summary:e.summary,engine_session_id:e.engine_session_id,checks:e.checks});
  if(canonical(fact(previous))!==canonical(fact(next)))throw Error('Agent completion evidence conflict');
  if(previous.output_snapshot_sha256&&previous.output_snapshot_sha256!==next.output_snapshot_sha256)throw Error('Output evidence conflict');
  if(previous.codebases.length&&canonical(previous.codebases)!==canonical(next.codebases))throw Error('Codebase evidence conflict');

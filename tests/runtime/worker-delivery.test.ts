@@ -11,7 +11,7 @@ import {WorkerDeliveryService} from '../../src/runtime/delivery.js';
 const assignment:Assignment={attempt_id:'execution_1',lease_epoch:1,agent:'codex',instruction:'build',input_files:[],codebases:[],timeout_seconds:null};
 async function fixture(){
  const root=await mkdtemp(join(tmpdir(),'luoshu-delivery-'));const state=new WorkerState(join(root,'worker.db'));state.recordStart(assignment.attempt_id,1,assignment);
- const checkpoints=new CheckpointStore(state.db);checkpoints.begin(assignment);checkpoints.agentFinished(assignment.attempt_id,{outcome:'succeeded',exit_code:0,summary:'done',session_id:'session_1',checks:[{command:'check',exit_code:0}],output_snapshot_sha256:null,codebases:[]});
+ const checkpoints=new CheckpointStore(state.db);checkpoints.begin(assignment);checkpoints.agentFinished(assignment.attempt_id,{outcome:'succeeded',exit_code:0,summary:'done',engine_session_id:'session_1',checks:[{command:'check',exit_code:0}],output_snapshot_sha256:null,codebases:[]});
  const workspace=await prepareWorkspace({stateDir:root,attemptId:assignment.attempt_id,inputFiles:[]});await mkdir(join(workspace.outputs,'project','src'),{recursive:true});await writeFile(join(workspace.outputs,'project','src','main.js'),'v1');
  state.finish(assignment.attempt_id,'finished');
  const service=new WorkerDeliveryService({state,checkpoints,stateDir:root,isExecutionActive:()=>false});

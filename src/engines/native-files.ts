@@ -8,7 +8,7 @@ import {sealNativeDelivery,verifyNativeDelivery} from '../protocol/assistant-eng
 import {withOutputRoot,collectOutputSnapshot,removeOwnedWorkspace} from '../runtime/files.js';
 import type {NativeCheckTarget,NativeDeliveredCheck} from '../protocol/index.js';
 
-interface Identity {session_id:string;run_id:string;submission_id:string}
+interface Identity {engine_session_id:string;run_id:string;submission_id:string}
 interface Input extends Identity {cwd:string;input_files:TaskFile[]}
 interface Row extends Identity {cwd:string;input_sha256:string;state:'preparing'|'ready'|'cancelled';delivery_json:string|null}
 export type NativeFileDelivery=NativeDelivery;
@@ -26,11 +26,11 @@ export class NativeRunFiles {
   CREATE TABLE IF NOT EXISTS assistant_native_run_files(
    run_id TEXT PRIMARY KEY,session_id TEXT NOT NULL,submission_id TEXT NOT NULL UNIQUE,cwd TEXT NOT NULL,
    input_sha256 TEXT NOT NULL,state TEXT NOT NULL,delivery_json TEXT);`);}
- private row(run:string){return this.db.prepare('SELECT * FROM assistant_native_run_files WHERE run_id=?').get(run) as Row|undefined;}
- pending():Identity[]{return this.db.prepare("SELECT session_id,run_id,submission_id FROM assistant_native_run_files WHERE delivery_json IS NULL AND state!='cancelled'").all() as Identity[];}
+ private row(run:string){return this.db.prepare('SELECT run_id,session_id AS engine_session_id,submission_id,cwd,input_sha256,state,delivery_json FROM assistant_native_run_files WHERE run_id=?').get(run) as Row|undefined;}
+ pending():Identity[]{return this.db.prepare("SELECT session_id AS engine_session_id,run_id,submission_id FROM assistant_native_run_files WHERE delivery_json IS NULL AND state!='cancelled'").all() as Identity[];}
  private settledSession(session:string){
-  const rows=this.db.prepare('SELECT session_id,run_id,cwd,state,delivery_json FROM assistant_native_run_files WHERE session_id=?').all(session) as Array<{session_id:string;run_id:string;cwd:string;state:string;delivery_json:string|null}>;
-  for(const row of rows){id(row.run_id);if(row.session_id!==session||!row.delivery_json&&row.state!=='cancelled'||this.preparing.has(row.run_id)||this.collecting.has(row.run_id))throw Error('Native owned file delivery is not settled');}
+  const rows=this.db.prepare('SELECT session_id AS engine_session_id,run_id,cwd,state,delivery_json FROM assistant_native_run_files WHERE session_id=?').all(session) as Array<{engine_session_id:string;run_id:string;cwd:string;state:string;delivery_json:string|null}>;
+  for(const row of rows){id(row.run_id);if(row.engine_session_id!==session||!row.delivery_json&&row.state!=='cancelled'||this.preparing.has(row.run_id)||this.collecting.has(row.run_id))throw Error('Native owned file delivery is not settled');}
   return rows;
  }
  purgeSessionData(session:string):void{
@@ -48,32 +48,32 @@ export class NativeRunFiles {
  }
  cached(session:string,run:string,submission:string):NativeFileDelivery|null{
   const row=this.row(id(run));if(!row)return null;
-  if(row.session_id!==session||row.submission_id!==submission)throw Error('Native delivery scope identity mismatch');
+  if(row.engine_session_id!==session||row.submission_id!==submission)throw Error('Native delivery scope identity mismatch');
   return row.delivery_json?verifyNativeDelivery(JSON.parse(row.delivery_json)):null;
  }
  activeCount():number{return(this.db.prepare(`SELECT COUNT(*) AS n FROM assistant_native_run_files f WHERE f.delivery_json IS NULL AND f.state!='cancelled' AND NOT EXISTS(SELECT 1 FROM codex_native_submissions s WHERE s.submission_id=f.submission_id AND s.status IN ('prepared','starting','running','stopping','unknown'))`).get() as {n:number}).n;}
  cancelPreparation(identity:Identity):void{
   const row=this.row(identity.run_id);if(!row)return;
-  if(row.session_id!==identity.session_id||row.submission_id!==identity.submission_id||row.delivery_json)throw Error('Native file cancellation identity conflict');
+  if(row.engine_session_id!==identity.engine_session_id||row.submission_id!==identity.submission_id||row.delivery_json)throw Error('Native file cancellation identity conflict');
   if(this.preparing.has(identity.run_id)||this.collecting.has(identity.run_id))throw Error('Native file work has not drained');
   this.db.prepare("UPDATE assistant_native_run_files SET state='cancelled' WHERE run_id=?").run(identity.run_id);
  }
- hasIntent(session:string,run:string,submission:string):boolean{const row=this.row(run);if(row&&(row.session_id!==session||row.submission_id!==submission))throw Error('Native file intent identity conflict');return Boolean(row);}
+ hasIntent(session:string,run:string,submission:string):boolean{const row=this.row(run);if(row&&(row.engine_session_id!==session||row.submission_id!==submission))throw Error('Native file intent identity conflict');return Boolean(row);}
  preparationCancelled(session:string,run:string,submission:string):boolean{
   const row=this.row(run);if(!row)return true;
-  if(row.session_id!==session||row.submission_id!==submission)throw Error('Native file inspection identity conflict');return row.state==='cancelled';
+  if(row.engine_session_id!==session||row.submission_id!==submission)throw Error('Native file inspection identity conflict');return row.state==='cancelled';
  }
  async fingerprint(identity:Identity,current:()=>void):Promise<string>{
-  current();const row=this.row(identity.run_id);if(!row||row.state!=='ready'||row.session_id!==identity.session_id||row.submission_id!==identity.submission_id)throw Error('Native check output scope mismatch');
+  current();const row=this.row(identity.run_id);if(!row||row.state!=='ready'||row.engine_session_id!==identity.engine_session_id||row.submission_id!==identity.submission_id)throw Error('Native check output scope mismatch');
   const snapshot=await collectOutputSnapshot(join(row.cwd,'runs',row.run_id,'outputs'));current();return snapshot.source_sha256;
  }
  async prepare(raw:Input):Promise<{inputs:string;outputs:string}>{
-  id(raw.run_id);id(raw.session_id);id(raw.submission_id);
+  id(raw.run_id);id(raw.engine_session_id);id(raw.submission_id);
   if(!isAbsolute(raw.cwd)||normalize(raw.cwd)!==raw.cwd)throw Error('Native workspace requires a normalized absolute directory');
   const files=taskFilesSchema.parse(raw.input_files),sha=digest(JSON.stringify(files)),prior=this.row(raw.run_id);
   if(prior?.state==='cancelled')throw Error('Native preparation was cancelled');
-  if(prior&&(prior.session_id!==raw.session_id||prior.submission_id!==raw.submission_id||prior.cwd!==raw.cwd||prior.input_sha256!==sha))throw Error('Native file intent conflict');
-  if(!prior)this.db.prepare("INSERT INTO assistant_native_run_files VALUES(?,?,?,?,?,'preparing',NULL)").run(raw.run_id,raw.session_id,raw.submission_id,raw.cwd,sha);
+  if(prior&&(prior.engine_session_id!==raw.engine_session_id||prior.submission_id!==raw.submission_id||prior.cwd!==raw.cwd||prior.input_sha256!==sha))throw Error('Native file intent conflict');
+  if(!prior)this.db.prepare("INSERT INTO assistant_native_run_files(run_id,session_id,submission_id,cwd,input_sha256,state,delivery_json) VALUES(?,?,?,?,?,'preparing',NULL)").run(raw.run_id,raw.engine_session_id,raw.submission_id,raw.cwd,sha);
   const active=this.preparing.get(raw.run_id);if(active)return active;
   const promise=this.stage({...raw,input_files:files});this.preparing.set(raw.run_id,promise);
   try{return await promise;}finally{this.preparing.delete(raw.run_id);}
@@ -113,7 +113,7 @@ export class NativeRunFiles {
  }
  async collect(session:string,run:string,submission:string,assertCurrent:()=>void=()=>{}):Promise<NativeFileDelivery>{
   assertCurrent();
-  const row=this.row(id(run));if(!row||row.session_id!==session||row.submission_id!==submission)throw Error('Native delivery scope identity mismatch');
+  const row=this.row(id(run));if(!row||row.engine_session_id!==session||row.submission_id!==submission)throw Error('Native delivery scope identity mismatch');
   if(row.state!=='ready'||!this.terminal(row))throw Error('Native execution is active or terminal state is unknown');
   if(row.delivery_json)return verifyNativeDelivery(JSON.parse(row.delivery_json));
   const current=this.collecting.get(run);if(current)return current;
@@ -121,16 +121,16 @@ export class NativeRunFiles {
   try{return await promise;}finally{this.collecting.delete(run);}
  }
  private async snapshot(row:Row,assertCurrent:()=>void):Promise<NativeFileDelivery>{
-  assertCurrent();const codebases=nativeCodebaseReceiptsSchema.parse(await this.collectCodebases({session_id:row.session_id,run_id:row.run_id,submission_id:row.submission_id},assertCurrent));assertCurrent();
-  const identity={session_id:row.session_id,run_id:row.run_id,submission_id:row.submission_id};
-  const outputs=join(row.cwd,'runs',row.run_id,'outputs');await this.collectDocuments({session_id:row.session_id,run_id:row.run_id,submission_id:row.submission_id},outputs,assertCurrent);assertCurrent();
+  assertCurrent();const codebases=nativeCodebaseReceiptsSchema.parse(await this.collectCodebases({engine_session_id:row.engine_session_id,run_id:row.run_id,submission_id:row.submission_id},assertCurrent));assertCurrent();
+  const identity={engine_session_id:row.engine_session_id,run_id:row.run_id,submission_id:row.submission_id};
+  const outputs=join(row.cwd,'runs',row.run_id,'outputs');await this.collectDocuments({engine_session_id:row.engine_session_id,run_id:row.run_id,submission_id:row.submission_id},outputs,assertCurrent);assertCurrent();
   const snapshot=await collectOutputSnapshot(outputs);const commands=await this.collectCommands(identity);assertCurrent();
   const evidence=await this.collectChecks(identity,snapshot.source_sha256,assertCurrent);assertCurrent();
   return this.db.transaction(()=>{
    assertCurrent();
    if(!this.terminal(row))throw Error('Native terminal state changed during collection');
    const prior=this.row(row.run_id);if(prior?.delivery_json)return verifyNativeDelivery(JSON.parse(prior.delivery_json));
-   const result=sealNativeDelivery({session_id:row.session_id,run_id:row.run_id,submission_id:row.submission_id,delivery_id:randomUUID(),...snapshot,codebases,commands,...evidence});
+   const result=sealNativeDelivery({engine_session_id:row.engine_session_id,run_id:row.run_id,submission_id:row.submission_id,delivery_id:randomUUID(),...snapshot,codebases,commands,...evidence});
    this.db.prepare('UPDATE assistant_native_run_files SET delivery_json=? WHERE run_id=? AND submission_id=?').run(JSON.stringify(result),row.run_id,row.submission_id);
    return result;
   })();

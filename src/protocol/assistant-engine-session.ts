@@ -4,13 +4,13 @@ import {agentEngineConfigSchema} from './assistant-engine.js';
 import {nativeCodebaseSpecsSchema} from './assistant-engine-codebases.js';
 
 export const nativeSessionRefSchema = z.object({
-  thread_id: z.string().min(1).max(200),
+  native_thread_id: z.string().min(1).max(200),
   session_tree_id: z.string().min(1).max(200).nullable(),
 }).strict();
 export type NativeSessionRef = z.infer<typeof nativeSessionRefSchema>;
 
 export const engineBindingSchema = z.object({
-  conversation_id: idSchema,
+  session_id: idSchema,
   agent_id: idSchema,
   actor_id: z.string().min(1).max(200),
   agent_revision: z.number().int().positive(),
@@ -31,7 +31,7 @@ const ids = z.array(idSchema).refine(value => new Set(value).size === value.leng
 export const engineSubmissionSchema = z.object({
   submission_id: idSchema,
   run_id: idSchema,
-  session_id: idSchema,
+  engine_session_id: idSchema,
   binding: engineBindingSchema,
   input_message_ids: ids.refine(value => value.length > 0, 'Input messages are required'),
   context_message_ids: ids,

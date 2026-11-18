@@ -40,7 +40,7 @@ test('maintenance roots apply to the next execution without changing an in-fligh
  void running.catch(()=>{});
  try{
   await expect.poll(async()=>{try{return await readFile(ready,'utf8');}catch{return '';}}).toBe('ready');
-  const state=await controller.state();expect((await controller.apply({request_id:'disable',revision:crypto.randomUUID(),expected_revision:state.revision,config:{...state.config,maintenance_roots:[]}})).status).toBe('applied');
+  const state=await controller.state();expect((await controller.apply({request_id:'disable',desired_revision:crypto.randomUUID(),expected_revision:state.applied_revision,config:{...state.desired,maintenance_roots:[]}})).status).toBe('applied');
   await writeFile(release,'go');expect((await running).status).toBe('passed');
   await expect(maintenance.execute({...request,attempt_id:'next'},new AbortController().signal)).rejects.toThrow(/未开放维护目录/);
  }finally{await writeFile(release,'go');await running;}

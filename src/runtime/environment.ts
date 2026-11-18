@@ -5,7 +5,7 @@ import { arch, platform } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
-import { agentIdSchema, idSchema, reportSchema, PROTOCOL_VERSION, type AgentId, type WorkerReport, codexSandboxModeSchema, type CodexSandboxMode } from '../protocol/index.js';
+import { agentIdSchema, idSchema, deviceObservationSchema, PROTOCOL_VERSION, type AgentId, type DeviceObservation, type DeviceServiceReport, codexSandboxModeSchema, type CodexSandboxMode } from '../protocol/index.js';
 import { COMPUTER_VERSION } from '../cli/version.js';
 import {assertSystemdUserAvailable} from '../engines/native-systemd-supervisor.js';
 import {lockWorkerConfig} from './config-lock.js';
@@ -14,7 +14,7 @@ import {validateComputerReleaseSource} from '../cli/releases.js';
 const execFileAsync = promisify(execFile);
 const TOOLS = { git: ['--version'], node: ['--version'], codex: ['--version'], opencode: ['--version'] } as const;
 
-export interface EnvironmentOptions { name: string; capacity: number; computerVersion?: string; probe?: (tool: keyof typeof TOOLS) => Promise<string | undefined>; agentPaths?: Partial<Record<AgentId,string>>; supervisorAvailable?:()=>Promise<boolean>; nativeAudit?:()=>Promise<'ready'|'login_required'|'permissions_unavailable'|'protocol_unsupported'> }
+export interface EnvironmentOptions { name: string; capacity: number; computerVersion?: string; probe?: (tool: keyof typeof TOOLS) => Promise<string | undefined>; agentPaths?: Partial<Record<AgentId,string>>; supervisorAvailable?:()=>Promise<boolean>; nativeAudit?:()=>Promise<'ready'|'login_required'|'permissions_unavailable'|'protocol_unsupported'>; services?: DeviceServiceReport[]; gitCredentials?: DeviceObservation['git_credentials'] }
 export interface WorkerConfig { release_repository?: string; release_url?: string; release_public_key?: string; worker_id: string; url: string; name: string; capacity: number; agent_paths?: Partial<Record<AgentId,string>>; development_roots?: string[]; development_roots_revision?: string; maintenance_roots?: string[]; codex_sandbox?: CodexSandboxMode; codex_settings_revision?: string; worker_config_revision?: string }
 export interface WorkerIdentity { publicKey: string; privateKey: string }
 
@@ -56,19 +56,17 @@ export function agentEnvironmentPath(agentPaths: Partial<Record<AgentId, string>
 
 function version(value: string): string { return value.match(/\d+(?:\.\d+){0,3}/)?.[0] ?? value.slice(0, 120); }
 
-export async function buildEnvironmentReport(options: EnvironmentOptions): Promise<WorkerReport> {
+export async function buildEnvironmentReport(options: EnvironmentOptions): Promise<DeviceObservation> {
   const probe = options.probe ?? (async (tool:keyof typeof TOOLS)=>{ const path=options.agentPaths?.[tool as AgentId]; if(!path)return defaultProbe(tool); try{return (await execFileAsync(path,TOOLS[tool],{timeout:5_000,maxBuffer:16_384})).stdout.trim();}catch{return undefined;} });
   const entries = await Promise.all((Object.keys(TOOLS) as (keyof typeof TOOLS)[]).map(async tool => [tool, await probe(tool)] as const));
-  const tools: Record<string, string> = {};
-  for (const [tool, found] of entries) if (found) tools[tool] = version(found);
+  const detected: Record<string,string> = {};
+  for (const [tool, found] of entries) if (found) detected[tool] = version(found);
   const ids:AgentId[]=['codex','opencode'];
-  const agents=ids.map(id=>({id, ...(tools[id]?{version:tools[id]}:{}), detected:Boolean(tools[id])}));
-  const codex=agents.find(agent=>agent.id==='codex');let supervisorReady=false;if(process.platform==='linux'&&codex?.detected){try{if(options.supervisorAvailable)supervisorReady=await options.supervisorAvailable();else{await assertSystemdUserAvailable();supervisorReady=true;}}catch{/* Report the capability precisely; do not fall back to a process group. */}}
-  const audit=supervisorReady?(options.nativeAudit?await options.nativeAudit().catch(()=> 'permissions_unavailable' as const):'permissions_unavailable' as const):null;
-  const adapter=codex?.detected&&!supervisorReady?{version:tools.codex,status:'unavailable' as const,reason:'supervisor_unavailable' as const,features:[] as const}:codex?.detected&&audit!=='ready'?{version:tools.codex,status:'unavailable' as const,reason:audit==='login_required'?'login_required' as const:audit==='protocol_unsupported'?'protocol_unsupported' as const:'permissions_unavailable' as const,features:[] as const}:codex?.detected?{version:tools.codex,status:'ready' as const,reason:null,adapter_version:1 as const,features:['session_resume','turn_status','turn_interrupt','interaction_response','structured_events','attachments','task_operations','delivery'] as const}:null;
-  const assistant_engines=codex?.detected&&adapter?[{agent:'codex' as const,agent_version:adapter.version,adapter_version:adapter.status==='ready'?1:null,status:adapter.status,reason:adapter.reason,features:[...adapter.features,...(adapter.status==='ready'?['core_agent_runtime' as const]:[])]}]:[];
-  if(codex?.detected&&audit==='ready')tools['luoshu.task_scope']='1';
-  return reportSchema.parse({ name: options.name, os: platform(), arch: arch(), tools, capacity: options.capacity, revision: 1, protocol_version:PROTOCOL_VERSION, computer_version: options.computerVersion ?? COMPUTER_VERSION, agents,assistant_engines,...(tools.git?{maintenance_git:true}:{}) });
+  const agents=ids.map(id=>({id,version:detected[id]??null,detected:Boolean(detected[id])}));
+  const software=Object.entries(detected).map(([id,ver])=>({id,version:ver,detected:true}));
+  const services=(options.services??[]).map(service=>deviceObservationSchema.shape.services.element.parse(service));
+  const report={protocol_version:PROTOCOL_VERSION as 9,report_revision:1,platform:{os:platform(),arch:arch(),computer_version:options.computerVersion??COMPUTER_VERSION},software,agents,services,git_credentials:options.gitCredentials??[]};
+  return deviceObservationSchema.parse(report);
 }
 
 export async function createIdentity(stateDir: string): Promise<WorkerIdentity> {

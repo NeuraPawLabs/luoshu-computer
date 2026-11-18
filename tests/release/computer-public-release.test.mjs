@@ -23,7 +23,7 @@ function fixture(t){
  put('scripts/templates/install-github-computer.sh','#!/bin/sh\necho verified-github-bootstrap\n');
  put('docs/provenance/source-import.json',JSON.stringify({format:'luoshu-computer-source-v1',upstream:{commit:'a'.repeat(40)}})+'\n');
  const archive=Buffer.from('built:export const publicValue = 42;\n');put('dist/computer/releases/0.1.6/linux-x64.tar.gz',archive);
- const manifest=Buffer.from(JSON.stringify({version:'0.1.6',protocol_version:8,releases:{'linux-x64':{path:'/computer/releases/0.1.6/linux-x64.tar.gz',sha256:digest(archive),size:archive.length}}},null,2)+'\n');
+ const manifest=Buffer.from(JSON.stringify({version:'0.1.6',protocol_version:9,releases:{'linux-x64':{path:'/computer/releases/0.1.6/linux-x64.tar.gz',sha256:digest(archive),size:archive.length}}},null,2)+'\n');
  mkdirSync(join(root,'dist'),{recursive:true});symlinkSync(join(project,'dist/lib'),join(root,'dist/lib'),'dir');
  put('dist/computer/manifest.json',manifest);put('dist/computer/install.sh','#!/bin/sh\necho install\n');
  put('scripts/package-runtime.mjs',`import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
@@ -33,7 +33,7 @@ mkdirSync('dist',{recursive:true});writeFileSync('dist/current-build.txt','built
 import {createHash} from 'node:crypto';
 const archive=readFileSync('dist/current-build.txt');mkdirSync('dist/computer/releases/0.1.6',{recursive:true});
 writeFileSync('dist/computer/releases/0.1.6/linux-x64.tar.gz',archive);
-writeFileSync('dist/computer/manifest.json',JSON.stringify({version:'0.1.6',protocol_version:8,releases:{'linux-x64':{path:'/computer/releases/0.1.6/linux-x64.tar.gz',sha256:createHash('sha256').update(archive).digest('hex'),size:archive.length}}},null,2)+'\\n');
+writeFileSync('dist/computer/manifest.json',JSON.stringify({version:'0.1.6',protocol_version:9,releases:{'linux-x64':{path:'/computer/releases/0.1.6/linux-x64.tar.gz',sha256:createHash('sha256').update(archive).digest('hex'),size:archive.length}}},null,2)+'\\n');
 writeFileSync('dist/computer/install.sh','#!/bin/sh\\necho install\\n');
 `);
 
@@ -49,7 +49,7 @@ function failure(result,pattern){assert.notEqual(result.status,0);assert.match(r
 test('unsigned release snapshots exactly tracked public source and checksums original artifact bytes',t=>{
  const f=fixture(t);success(f.run());
  const release=JSON.parse(readFileSync(join(f.output,'release.json')));
- assert.equal(release.version,'0.1.6');assert.equal(release.tag,'v0.1.6');assert.equal(release.commit,f.git('rev-parse','HEAD'));assert.equal(release.protocol_version,8);assert.equal(release.prerelease,true);assert.equal(release.signature,'none');
+ assert.equal(release.version,'0.1.6');assert.equal(release.tag,'v0.1.6');assert.equal(release.commit,f.git('rev-parse','HEAD'));assert.equal(release.protocol_version,9);assert.equal(release.prerelease,true);assert.equal(release.signature,'none');
  assert.deepEqual(readFileSync(join(f.output,'manifest.json')),f.manifest);assert.deepEqual(readFileSync(join(f.output,'luoshu-computer-0.1.6-linux-x64.tar.gz')),f.archive);
  assert.equal(existsSync(join(f.output,'manifest.sig')),false);
  assert.equal(readFileSync(join(f.output,'install.sh'),'utf8'),'#!/bin/sh\necho verified-github-bootstrap\n');
@@ -116,7 +116,7 @@ test('source snapshot requires tracked export provenance from a clean upstream c
 test('release rebuilds stale same-version binaries from the tagged source',t=>{
  const f=fixture(t),stale=Buffer.from('stale binary from unrelated source');
  f.put('dist/computer/releases/0.1.6/linux-x64.tar.gz',stale);
- f.put('dist/computer/manifest.json',JSON.stringify({version:'0.1.6',protocol_version:8,releases:{'linux-x64':{path:'/computer/releases/0.1.6/linux-x64.tar.gz',sha256:digest(stale),size:stale.length}}}));
+ f.put('dist/computer/manifest.json',JSON.stringify({version:'0.1.6',protocol_version:9,releases:{'linux-x64':{path:'/computer/releases/0.1.6/linux-x64.tar.gz',sha256:digest(stale),size:stale.length}}}));
  success(f.run());assert.deepEqual(readFileSync(join(f.output,'luoshu-computer-0.1.6-linux-x64.tar.gz')),f.archive);
  const release=JSON.parse(readFileSync(join(f.output,'release.json')));assert.equal(release.artifacts.find(artifact=>artifact.name==='luoshu-computer-0.1.6-linux-x64.tar.gz').sha256,digest(f.archive));
 });
