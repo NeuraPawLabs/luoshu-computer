@@ -1,29 +1,20 @@
 import {z} from 'zod';
 import {agentIdSchema, idSchema} from './wire-base.js';
 
-export const agentEngineConfigSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('builtin'),
-    model_connection_id: z.string().uuid(),
-    model_id: z.string().trim().min(1).max(200),
-    reasoning_effort: z.string().trim().min(1).max(32).refine(value => value !== 'auto').nullable(),
-    thinking_budget_tokens: z.number().int().min(1024).max(16384).nullable(),
-  }).strict(),
-  z.object({
-    kind: z.literal('device'),
-    device_id: idSchema,
-    agent: z.literal('codex'),
-    adapter_version: z.literal(1),
-  }).strict(),
-]);
+/** Execution on an authenticated Computer. Model profiles are server-side. */
+export const agentEngineConfigSchema = z.object({
+  kind: z.literal('device'),
+  device_id: idSchema,
+  agent: z.literal('codex'),
+  adapter_version: z.literal(1),
+}).strict();
 export type AgentEngineConfig = z.infer<typeof agentEngineConfigSchema>;
 
 export const requiredDeviceEngineFeatures = [
   'session_resume', 'turn_status', 'turn_interrupt', 'interaction_response',
   'structured_events', 'attachments', 'task_operations', 'delivery',
 ] as const;
-/** Feature reported by newer devices that can host the Core Agent decision loop. */
-export const deviceEngineFeatureSchema = z.enum([...requiredDeviceEngineFeatures, 'core_agent_runtime']);
+export const deviceEngineFeatureSchema = z.enum(requiredDeviceEngineFeatures);
 export type DeviceEngineFeature = z.infer<typeof deviceEngineFeatureSchema>;
 
 export const deviceEngineReportSchema = z.object({

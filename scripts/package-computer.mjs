@@ -18,11 +18,6 @@ rmSync(staging, { recursive: true, force: true });
 mkdirSync(staging, { recursive: true });
 execFileSync(process.execPath, [resolve(root, 'scripts/package-runtime.mjs')], { cwd: root, stdio: 'pipe' });
 cpSync(resolve(root, 'dist/runtime'), join(staging, 'app'), { recursive: true });
-// Pre-migration updaters write a launcher with this historical entry path.
-// Forward it to the single implementation without shipping workspace packages.
-const legacyEntry=join(staging,'app/apps/worker/dist/computer-main.js');
-mkdirSync(join(legacyEntry,'..'),{recursive:true});
-writeFileSync(legacyEntry,"await import('../../../dist/main.js');\n");
 execFileSync('npm', ['ci', '--omit=dev', '--offline', '--no-audit', '--no-fund'], { cwd: join(staging, 'app'), stdio: 'pipe', timeout: 120_000 });
 
 function flattenSymlinks(root) {
@@ -58,6 +53,6 @@ const manifest = { version, protocol_version: PROTOCOL_VERSION, releases: { 'lin
 mkdirSync(output, { recursive: true });
 writeFileSync(join(output, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 const template = readFileSync(resolve(root, 'scripts/templates/install-computer.sh'), 'utf8');
-writeFileSync(join(output, 'install.sh'), template.replace('__LUOSHU_BASE_URL__', '${LUOSHU_BASE_URL:-http://127.0.0.1:8080}'), { mode: 0o755 });
+writeFileSync(join(output, 'install.sh'), template.replace('__LUOSHU_PROTOCOL_VERSION__',String(PROTOCOL_VERSION)).replace('__LUOSHU_BASE_URL__', '${LUOSHU_BASE_URL:-http://127.0.0.1:8080}'), { mode: 0o755 });
 rmSync(resolve(root, 'dist/.computer-staging'), { recursive: true, force: true });
 console.log(output);

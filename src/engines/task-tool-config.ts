@@ -1,6 +1,6 @@
 /** Host-owned restrictions for model-only Core sessions. These never come from
  * the model or change the user's on-disk Codex/Worker configuration. */
-export function coreToolConfig(mcpServers:Record<string,unknown>):Record<string,unknown>{
+export function restrictedTaskToolConfig(mcpServers:Record<string,unknown>):Record<string,unknown>{
  const disabled=[
   'shell_tool','shell_snapshot','unified_exec','apply_patch_freeform',
   'apps','connectors','plugins','remote_plugin','hooks','codex_hooks',

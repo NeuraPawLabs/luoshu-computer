@@ -22,12 +22,12 @@ test('computer package contains a Linux release and manifest digest', async () =
   const packagedVersion = execFileSync('tar', ['-xOzf', archive, './app/dist/cli/version.js'], { encoding: 'utf8' });
   const runtime = await import(`data:text/javascript,${encodeURIComponent(packagedVersion)}`);
   assert.equal(runtime.COMPUTER_VERSION, manifest.version);
-  assert.equal(manifest.protocol_version, 9);
+  assert.equal(manifest.protocol_version, 10);
   assert.equal(manifest.releases['linux-x64'].sha256.length, 64);
   assert.ok(existsSync(join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))));
   const listing = execFileSync('tar', ['-tzf', join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))], { encoding: 'utf8' });
   assert.match(listing, /app\/node_modules\/ws\/package\.json/);
-  assert.doesNotMatch(listing, /app\/packages\//);
+  assert.doesNotMatch(listing, /app\/(?:packages|apps)\//);
   assert.match(listing, /app\/dist\/main\.js/);
   const detailed = execFileSync('tar', ['-tvzf', join(root, 'dist/computer', manifest.releases['linux-x64'].path.replace(/^\/computer\//, ''))], { encoding: 'utf8' });
   assert.doesNotMatch(detailed, /(^|\n)l[rwx-]{9}\s/);
@@ -39,7 +39,7 @@ test('installer template is included and contains no development npm command', (
   assert.doesNotMatch(installer, /npm run worker/);
 });
 
-test('the generated release updates an installed 0.1.2 computer', async () => {
+test('the generated release activates a different installed version', async () => {
   const { applyComputerUpdate } = await import('../../dist/lib/cli/update.js');
   const computerRoot = join(root, 'dist/computer');
   const manifest = JSON.parse(readFileSync(join(computerRoot, 'manifest.json'), 'utf8'));
@@ -58,10 +58,14 @@ test('the generated release updates an installed 0.1.2 computer', async () => {
 test('installer consumes a signed manifest with a pinned public key and activates the release', async () => {
   const computerRoot = join(root, 'dist/computer');
   const keyPair=generateKeyPairSync('ed25519');
-  const signature=sign(null,readFileSync(join(computerRoot,'manifest.json')),keyPair.privateKey);
+  let manifestBytes=readFileSync(join(computerRoot,'manifest.json'));
+  let signature=sign(null,manifestBytes,keyPair.privateKey);
+  let archiveDownloads=0;
   const server = createServer((request, response) => {
     if(request.url==='/computer/manifest.sig'){response.end(signature);return;}
-    const file = request.url === '/computer/manifest.json' ? join(computerRoot, 'manifest.json') : request.url?.startsWith('/computer/releases/') ? join(computerRoot, request.url.replace('/computer/', '')) : null;
+    if(request.url==='/computer/manifest.json'){response.end(manifestBytes);return;}
+    const file = request.url?.startsWith('/computer/releases/') ? join(computerRoot, request.url.replace('/computer/', '')) : null;
+    if(file)archiveDownloads++;
     if (!file || !existsSync(file)) { response.statusCode = 404; response.end(); return; }
     response.setHeader('content-type', request.url?.endsWith('.json') ? 'application/json' : 'application/gzip');
     response.end(readFileSync(file));
@@ -79,13 +83,14 @@ test('installer consumes a signed manifest with a pinned public key and activate
     writeFileSync(join(state, 'config.json'), JSON.stringify({ worker_id: 'worker_1', url: 'http://127.0.0.1:8080', name: 'desk', capacity: 1 }));
     const status = await exec(join(home, '.local/bin/luoshu-computer'), ['status'], { env: { ...process.env, HOME: home }, timeout: 30_000 });
     assert.equal(JSON.parse(status.stdout).worker_id, 'worker_1');
-    // A pre-migration updater rewrites the launcher to this historical entry.
-    // Execute it with the real bundled Node to prove old clients can upgrade.
-    const legacy = await exec(join(home, '.local/share/luoshu-computer/current/runtime/node'), [join(home, '.local/share/luoshu-computer/current/app/apps/worker/dist/computer-main.js'), 'status'], {env:{...process.env,HOME:home},timeout:30_000});
-    assert.equal(JSON.parse(legacy.stdout).worker_id, 'worker_1');
     const installed=readlinkSync(join(home,'.local/share/luoshu-computer/current'));
     signature.fill(0);
     await assert.rejects(exec('sh',[join(computerRoot,'install.sh')],{env:{...process.env,HOME:home,LUOSHU_RELEASE_KEY:keyPath,LUOSHU_BASE_URL:`http://127.0.0.1:${address.port}`},timeout:30000}),/signature verification failed/);
+    assert.equal(readlinkSync(join(home,'.local/share/luoshu-computer/current')),installed);
+    manifestBytes=Buffer.from(JSON.stringify({...JSON.parse(manifestBytes),protocol_version:9}));
+    signature=sign(null,manifestBytes,keyPair.privateKey);
+    await assert.rejects(exec('sh',[join(computerRoot,'install.sh')],{env:{...process.env,HOME:home,LUOSHU_RELEASE_KEY:keyPath,LUOSHU_BASE_URL:`http://127.0.0.1:${address.port}`},timeout:30000}),/Unsupported Computer release protocol/);
+    assert.equal(archiveDownloads,1);
     assert.equal(readlinkSync(join(home,'.local/share/luoshu-computer/current')),installed);
   } finally {
     await new Promise(resolve => server.close(resolve));

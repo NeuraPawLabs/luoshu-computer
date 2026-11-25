@@ -15,7 +15,7 @@ const request:RecoveryCommand={
  action:'recover_artifacts',delivery_id:null,
 };
 test('recovery protocol requires the new version and rejects executable/path input',()=>{
- expect(PROTOCOL_VERSION).toBe(9);
+ expect(PROTOCOL_VERSION).toBe(10);
  expect(recoveryRequestSchema.parse(request)).toEqual(request);
  expect(recoveryRequestSchema.safeParse({...request,path:'/etc/passwd'}).success).toBe(false);
  expect(recoveryRequestSchema.safeParse({...request,instruction:'run again'}).success).toBe(false);

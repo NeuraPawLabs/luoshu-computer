@@ -1,11 +1,10 @@
 import {expect,test} from 'vitest';
 import {buildEnvironmentReport} from '../../src/runtime/environment.js';
-import type {DeviceServiceReport} from '../../src/protocol/index.js';
+import {requiredDeviceEngineFeatures,type DeviceServiceReport} from '../../src/protocol/index.js';
 
-const assistantFeatures: DeviceServiceReport['features'] = ['session_resume','turn_status','turn_interrupt','interaction_response','structured_events','attachments','task_operations','delivery','core_agent_runtime'];
 const assistantService = (status: DeviceServiceReport['status'], reason: string | null = null): DeviceServiceReport => ({
  id:'assistant-codex', type:'assistant_engine', version:'1', agent_id:'codex', status, reason,
- features: assistantFeatures,
+ features: [...requiredDeviceEngineFeatures],
 });
 
 test('detected Codex without an available audit remains unavailable',async()=>{
@@ -14,7 +13,7 @@ test('detected Codex without an available audit remains unavailable',async()=>{
 });
 test('detected current Codex is ready when the approved systemd supervisor is available',async()=>{
  const report=await buildEnvironmentReport({name:'fixture',capacity:1,supervisorAvailable:async()=>true,nativeAudit:async()=> 'ready',agentPaths:{codex:'/fixture/codex'},services:[assistantService('ready')],probe:async tool=>tool==='codex'?'codex 0.160.0':undefined});
- expect(report.agents).toContainEqual(expect.objectContaining({id:'codex',detected:true,version:'0.160.0'}));expect(report.services.find(s=>s.type==='assistant_engine')).toMatchObject({agent_id:'codex',status:'ready',features:expect.arrayContaining(['delivery','task_operations','core_agent_runtime'])});
+ expect(report.agents).toContainEqual(expect.objectContaining({id:'codex',detected:true,version:'0.160.0'}));expect(report.services.find(s=>s.type==='assistant_engine')).toMatchObject({agent_id:'codex',status:'ready',features:expect.arrayContaining(requiredDeviceEngineFeatures)});
 });
 test('verified Codex patch release is ready when the approved systemd supervisor is available',async()=>{
  const report=await buildEnvironmentReport({name:'fixture',capacity:1,supervisorAvailable:async()=>true,nativeAudit:async()=> 'ready',agentPaths:{codex:'/fixture/codex'},services:[assistantService('ready')],probe:async tool=>tool==='codex'?'codex 0.160.1':undefined});

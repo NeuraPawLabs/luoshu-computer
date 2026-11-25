@@ -147,7 +147,7 @@ export class CodexEngineService {
   assertCurrent();
   const request=engineWireRequestSchema.parse(raw);
   if(request.action==='session_close'){
-   if(request.binding.engine.kind!=='device'||request.binding.engine.device_id!==this.workerId)throw Error('Foreign Worker binding');
+   if(request.binding.engine.device_id!==this.workerId)throw Error('Foreign Worker binding');
    this.store.revokeSession(request.engine_session_id,{...request.binding,engine:request.binding.engine});
    const session=this.store.session(request.engine_session_id),state=session?.native_thread_id?this.active.get(session.native_thread_id):undefined;
    // Revoke pending tool/approval handlers before terminalControl yields.
@@ -186,19 +186,19 @@ export class CodexEngineService {
    const authority=assertCurrent;assertCurrent=()=>{authority();this.store.assertSessionOpen(session);};assertCurrent();
   }
   if(request.action==='workspace_renew'){
-   const s=request.submission;if(s.binding.engine.kind!=='device'||s.binding.engine.device_id!==this.workerId)throw Error('Native renewal targets another Worker');
+   const s=request.submission;if(s.binding.engine.device_id!==this.workerId)throw Error('Native renewal targets another Worker');
    this.armPreparationLease(s,this.store.renewPreparation(s,request.lease_ms));
    return{action:'workspace_renew',request_id:request.request_id,engine_session_id:s.engine_session_id,run_id:s.run_id,submission_id:s.submission_id,authorization_revision:s.binding.authorization_revision};
   }
   if(request.action==='workspace_inspect'){
-   const s=request.submission;if(s.binding.engine.kind!=='device'||s.binding.engine.device_id!==this.workerId)throw Error('Native inspection targets another Worker');
+   const s=request.submission;if(s.binding.engine.device_id!==this.workerId)throw Error('Native inspection targets another Worker');
    const saved=this.store.preparationState(s),drained=!this.preparations.get(s.submission_id)?.size&&(this.options.files?.preparationCancelled(s.engine_session_id,s.run_id,s.submission_id)??true);
    const session=this.store.session(s.engine_session_id);
    return{action:'workspace_inspect',request_id:request.request_id,engine_session_id:s.engine_session_id,run_id:s.run_id,submission_id:s.submission_id,authorization_revision:s.binding.authorization_revision,state:saved==='cancelling'&&drained?'cancelled':saved,session_state:session?.native_status??'missing',native:session?.native_thread_id?{native_thread_id:session.native_thread_id,session_tree_id:session.session_tree_id}:null};
   }
   if(request.action==='workspace_cancel'){
    const s=request.submission;
-   if(s.binding.engine.kind!=='device'||s.binding.engine.device_id!==this.workerId)throw Error('Native cancellation targets another Worker');
+   if(s.binding.engine.device_id!==this.workerId)throw Error('Native cancellation targets another Worker');
    this.store.cancelPreparation(s);
    this.clearPreparationLease(s.submission_id);
    await this.options.codebases?.cancel({engine_session_id:s.engine_session_id,run_id:s.run_id,submission_id:s.submission_id});
@@ -212,7 +212,7 @@ export class CodexEngineService {
   if(preparationId){const authority=assertCurrent;assertCurrent=()=>{authority();this.assertPreparationAuthority(preparationId);};assertCurrent();}
   if(request.action==='workspace_prepare'){
    const s=request.submission,binding=s.binding;
-   if(binding.engine.kind!=='device'||binding.engine.device_id!==this.workerId)throw Error('Native preparation targets another Worker');
+   if(binding.engine.device_id!==this.workerId)throw Error('Native preparation targets another Worker');
    if(!s.codebases?.length||!this.options.files||!this.options.codebases)throw Error('Native Codebase preparation is unavailable');
    const hash=s.input_files_sha256,files=request.input_files;
    if(hash?createHash('sha256').update(JSON.stringify(files)).digest('hex')!==hash:files.length>0)throw Error('Native input file digest mismatch');
@@ -236,39 +236,36 @@ export class CodexEngineService {
    return{action:'workspace_prepare',request_id:request.request_id,engine_session_id:s.engine_session_id,submission_id:s.submission_id,run_id:s.run_id,authorization_revision:binding.authorization_revision,codebases:prepared.workspace.codebases.map(c=>({codebase_id:c.id,base_commit:c.base_commit,branch:c.branch,checkout_path:c.checkout_path}))};
   }
   if(request.action==='session_inspect'){
-   if(request.binding.engine.kind!=='device'||request.binding.engine.device_id!==this.workerId)throw Error('Foreign Worker binding');
+   if(request.binding.engine.device_id!==this.workerId)throw Error('Foreign Worker binding');
    const session=this.store.session(request.engine_session_id);
    if(session&&!isDeepStrictEqual(this.store.binding(request.engine_session_id),request.binding))throw Error('Native session inspection binding mismatch');
    return{...request,state:session?.native_status??'missing',native:session?.native_thread_id?{native_thread_id:session.native_thread_id,session_tree_id:session.session_tree_id}:null};
   }
    if(request.action==='session_prepare'){
-   if(request.binding.engine.kind!=='device'||request.binding.engine.device_id!==this.workerId)throw Error('Engine request targets another Worker');
-   if(request.binding.role==='core'&&request.resources)throw Error('Core sessions cannot prepare Worker resources');
+   if(request.binding.engine.device_id!==this.workerId)throw Error('Engine request targets another Worker');
    let resources:PreparedNativeCodebases|undefined;
    if(request.resources){
     const metadata=this.store.metadata(request.engine_session_id,request.resources.submission_id);
     if(!isDeepStrictEqual(metadata.binding,request.binding)||metadata.run_id!==request.resources.run_id||!metadata.codebases?.length||!this.options.codebases)throw Error('Native resource preparation identity mismatch');
     resources=await this.options.codebases.prepared({engine_session_id:request.engine_session_id,...request.resources},assertCurrent);assertCurrent();
    }
-   const sessionId=request.engine_session_id,binding=request.binding;if(binding.engine.kind!=='device')throw Error('Builtin engine cannot use device transport');const deviceBinding={...binding,engine:binding.engine};const native=await this.sessions.prepare({session_key:sessionId,binding:deviceBinding,execution_workspace_id:request.execution_workspace_id,developer_instructions:request.developer_instructions,...(resources?{resources:{read:resources.read,write:resources.write,resourceRoot:resources.workspace.path}}:{})},assertCurrent);
+   const sessionId=request.engine_session_id;const native=await this.sessions.prepare({session_key:sessionId,binding:request.binding,execution_workspace_id:request.execution_workspace_id,developer_instructions:request.developer_instructions,...(resources?{resources:{read:resources.read,write:resources.write,resourceRoot:resources.workspace.path}}:{})},assertCurrent);
    return{action:'session_prepare',request_id:request.request_id,engine_session_id:sessionId,native:{native_thread_id:native.native_thread_id,session_tree_id:native.session_tree_id}};
   }
   if(request.action==='submit'){
-   const core=request.submission.binding.role==='core';
-   if(core&&(request.input_files?.length||request.submission.input_files_sha256))throw Error('Core submissions cannot prepare Worker attachments');
    if(this.preparations.get(request.submission.submission_id)?.size)throw Error('Native workspace preparation is pending');
    if(createHash('sha256').update(JSON.stringify(request.input)).digest('hex')!==request.submission.input_sha256)throw Error('Codex submission input digest mismatch');
    const files=request.input_files??[],filesHash=request.submission.input_files_sha256;
    if(filesHash?createHash('sha256').update(JSON.stringify(files)).digest('hex')!==filesHash:files.length>0)throw Error('Native input file digest mismatch');
    if(files.length&&!this.options.files)throw Error('Native input file service unavailable');
-   const binding=request.submission.binding; if(binding.engine.kind!=='device'||binding.engine.device_id!==this.workerId)throw Error('Engine request targets another Worker');
+   const binding=request.submission.binding; if(binding.engine.device_id!==this.workerId)throw Error('Engine request targets another Worker');
    const session=this.store.session(request.submission.engine_session_id);if(!session?.native_thread_id)throw Error('Codex session is not prepared');
    this.options.files?.assertSubmissionAllowed(request.submission.engine_session_id,request.submission.run_id,request.submission.submission_id);
    if(!this.store.submission(request.submission.submission_id)&&!this.options.files?.hasIntent(request.submission.engine_session_id,request.submission.run_id,request.submission.submission_id)&&this.store.activeCount()+(this.options.files?.activeCount()??0)+(this.options.otherActiveCount?.()??0)>=(this.options.capacity?.()??1)){
     const error=Error('Worker assistant engine capacity is full');
     // Only this pre-reservation refusal proves that no Core turn started.
     // Unknown receipts and failures after reservation must never be replayed.
-    throw core||binding.role==='main'||binding.role==='subagent'?Object.assign(error,{code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true}):error;
+    throw Object.assign(error,{code:'DEVICE_AGENT_CAPACITY_UNAVAILABLE',retryable:true});
    }
    this.store.registerSubmission(request.submission);
    if(request.submission.codebases?.length&&!this.store.submission(request.submission.submission_id))this.assertPreparationAuthority(request.submission.submission_id);
@@ -279,7 +276,6 @@ export class CodexEngineService {
    if(!previous&&!this.store.submission(request.submission.submission_id)){this.active.set(session.native_thread_id,state);this.renewLease(state,request.lease_ms);}
    let result:{native_thread_id:string;turn_id:string},resources:PreparedNativeCodebases|undefined;
    try{result=await this.sessions.submit({session_key:request.submission.engine_session_id,binding:{...binding,engine:binding.engine},cwd:session.cwd,input:request.input,input_sha256:request.submission.input_sha256,submission_id:request.submission.submission_id,output_schema:request.submission.output_schema,assertCurrent:()=>{assertCurrent();if(state.stopped||Date.now()>=state.deadline)throw Error('Native execution authority expired');},prepareResources:async()=>resources?{read:resources.read,write:resources.write,resourceRoot:resources.workspace.path}:{read:[],write:[]},prepareInput:async()=>{
-    if(core)return request.input;
     if(request.submission.codebases?.length){
      if(!this.options.codebases)throw Error('Native Codebase preparation is unavailable');
      resources=await this.options.codebases.prepared({engine_session_id:request.submission.engine_session_id,submission_id:request.submission.submission_id,run_id:request.submission.run_id},assertCurrent);assertCurrent();
@@ -293,7 +289,6 @@ export class CodexEngineService {
    this.clearPreparationLease(request.submission.submission_id);
    if(this.active.get(state.threadId)===state){
     state.turnId=result.turn_id;state.projection=new CodexTurnProjection(result.native_thread_id,result.turn_id);
-    if(!core){
     const interactionAuthorized=()=>!state.stopped&&Date.now()<state.deadline&&this.options.authorized?.()!==false&&this.active.get(state.threadId)===state&&state.generation===(this.options.generation?.()??1);
     state.interactions=new CodexInteractions(result.native_thread_id,result.turn_id,e=>this.publish(state,e),interactionAuthorized,params=>{
      const current=()=>{assertCurrent();if(!interactionAuthorized())throw Error('Codex interaction steering authority expired');};
@@ -320,7 +315,6 @@ export class CodexEngineService {
     const checkCurrent=()=>{assertCurrent();if(state.stopped||Date.now()>=state.deadline||this.active.get(state.threadId)!==state||this.store.submission(state.submission.submission_id)?.status!=='running')throw Error('Native check authority expired');};
     const identity={engine_session_id:state.submission.engine_session_id,submission_id:state.submission.submission_id,run_id:state.submission.run_id};
     state.checks=new NativeCheckWindow({thread:result.native_thread_id,turn:result.turn_id,assertCurrent:checkCurrent,quiescent:()=>this.sessions.assertCheckQuiescent(identity.engine_session_id,identity.submission_id,checkCurrent),snapshot:()=>this.checkContent(identity,checkCurrent),commands:()=>this.commandReceipts(identity),save:r=>this.store.recordCheck(identity.engine_session_id,identity.submission_id,r)});
-    }
     state.releaseAcknowledgement();
     for(const early of state.early)this.notification(early.method,early.params);state.early=[];
     if(state.stopped&&this.active.get(state.threadId)===state)await this.stop(state);
@@ -328,7 +322,7 @@ export class CodexEngineService {
    return{action:'submit',request_id:request.request_id,engine_session_id:request.submission.engine_session_id,turn_id:result.turn_id};
   }
   const metadata=this.store.metadata(request.engine_session_id,request.submission_id);
-  if(metadata.run_id!==request.run_id||metadata.binding.authorization_revision!==request.authorization_revision||metadata.binding.engine.kind!=='device'||metadata.binding.engine.device_id!==this.workerId)throw Error('Codex control request identity mismatch');
+  if(metadata.run_id!==request.run_id||metadata.binding.authorization_revision!==request.authorization_revision||metadata.binding.engine.device_id!==this.workerId)throw Error('Codex control request identity mismatch');
   if(request.action==='inspect'){
    const row=this.store.submission(request.submission_id),session=this.store.session(request.engine_session_id);
    if(!row||row.session_key!==request.engine_session_id)throw Error('Native submission identity missing');
@@ -348,7 +342,7 @@ export class CodexEngineService {
   }
   if(request.action==='renew'||request.action==='result'){
    if(request.action==='result')return{...request,result:this.store.result(request.engine_session_id,request.submission_id)};
-   if(metadata.binding.role==='core'&&this.store.result(request.engine_session_id,request.submission_id)){
+   if(this.store.result(request.engine_session_id,request.submission_id)){
     // Completion can race the submit acknowledgement or a heartbeat. Confirm
     // the durable terminal receipt without extending or reopening execution.
     const {lease_ms:_lease,...reply}=request;return reply;
@@ -438,7 +432,6 @@ export class CodexEngineService {
   const params=request.params as {threadId?:string;turnId?:string}|undefined,state=params?.threadId?this.active.get(params.threadId):undefined;
   const tool=(request.params as {tool?:unknown}|undefined)?.tool,knowledge=request.method==='item/tool/call'&&typeof tool==='string'&&tool.startsWith('luoshu_knowledge_');
   if(state&&!state.turnId)await state.acknowledged;
-  if(state?.submission.binding.role==='core')throw Error('Core sessions cannot execute native Worker tools or interactions');
   if(!state?.interactions||state.stopped||this.active.get(state.threadId)!==state||state.turnId!==params?.turnId){
    if(knowledge)return{success:false,contentItems:[{type:'inputText',text:JSON.stringify({error:'Knowledge operation is no longer authorized for this native turn'})}]};
    throw Error('Codex request has no acknowledged authorized turn');

@@ -1,5 +1,7 @@
 # Luoshu Computer
 
+Core and Computer must use device protocol v10. Install the matching Computer release and reconnect the device before using native Agents.
+
 MIT-licensed local execution client for [Luoshu](https://github.com/NeuraPawLabs/luoshu). Device runtime, wire protocol and local tests live in this independent repository; Core and Console are maintained separately. Dependencies retain their own licenses.
 
 The supported target is Linux x64 with systemd 254+ user services and cgroup v2. Codex/OpenCode are installed and authenticated separately by each user.
@@ -48,7 +50,7 @@ GitHub Actions automatically builds and signs a version tag using the **LUOSHU_R
 
 Explicit local unsigned development bundles can still be prepared with `npm run release:prepare`; they are prereleases and cannot be installed through the signed GitHub installer.
 
-See [Contributing](CONTRIBUTING.md), [Compatibility](docs/compatibility.md) and [Security](SECURITY.md).
+See [Contributing](CONTRIBUTING.md), [Device protocol](docs/device-protocol.md) and [Security](SECURITY.md).
 
 ## Repository layout
 
@@ -60,7 +62,7 @@ src/
   engines/      Native Agent sessions and supervised processes
   development/  Directory access and interactive development sessions
   maintenance/  Authorized repository maintenance
-  protocol/     Core/device wire schemas, protocol v9
+  protocol/     Core/device wire schemas, protocol v10
   shared/       Security, execution budgets and release validation
 tests/         Behavioral suites grouped by module
 scripts/       Runtime packaging, signing, publishing and installers

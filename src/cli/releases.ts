@@ -46,9 +46,9 @@ export function validateComputerReleaseSource(config: ReleaseSource): void {
   if (key.asymmetricKeyType !== 'ed25519') throw new Error('Computer release public key must use Ed25519');
 }
 
-function archiveUrl(path: string, feed: URL, legacyCoreBase?: string): URL {
-  // Legacy Core paths are appended to its configured base, including proxy prefixes.
-  const url = legacyCoreBase === undefined ? new URL(path, feed) : new URL(`${legacyCoreBase}${path}`);
+function archiveUrl(path: string, feed: URL, coreBase?: string): URL {
+  // Core-hosted archive paths are appended to its configured base, including proxy prefixes.
+  const url = coreBase === undefined ? new URL(path, feed) : new URL(`${coreBase}${path}`);
   assertSafePath(url.pathname);
   if (url.origin !== feed.origin || !url.pathname.startsWith(feed.pathname) || url.pathname === feed.pathname || url.username || url.password || url.search || url.hash) {
     throw new Error('Computer release archive path is outside the selected feed');
@@ -89,7 +89,7 @@ async function fetchBytes(url: URL, fetchImpl: typeof fetch, maxBytes: number, l
   return bytes;
 }
 
-/** Load a signed independent feed, or the legacy unsigned Core mirror. */
+/** Load a signed independent feed, or a Core-hosted mirror. */
 export async function fetchComputerRelease(config: WorkerConfig, options: {fetchImpl?: typeof fetch} = {}): Promise<{manifest: ComputerReleaseManifest; download: () => Promise<Uint8Array>}> {
   validateComputerReleaseSource(config);
   if (process.platform !== 'linux' || process.arch !== 'x64') throw new Error('Computer releases support only the Linux x64 platform');

@@ -5,7 +5,7 @@ import {validateWorkerConfig} from '../../src/runtime/environment.js';
 
 function fixture(){
  const keys=generateKeyPairSync('ed25519'),archive=Buffer.from('GitHub signed archive');
- const manifest=Buffer.from(JSON.stringify({version:'0.2.0',protocol_version:9,releases:{'linux-x64':{path:'/computer/releases/0.2.0/linux-x64.tar.gz',size:archive.length,sha256:createHash('sha256').update(archive).digest('hex')}}}));
+ const manifest=Buffer.from(JSON.stringify({version:'0.2.0',protocol_version:10,releases:{'linux-x64':{path:'/computer/releases/0.2.0/linux-x64.tar.gz',size:archive.length,sha256:createHash('sha256').update(archive).digest('hex')}}}));
  const config={worker_id:'worker_1',name:'desk',capacity:1,url:'https://core.test',release_repository:'NeuraPawLabs/luoshu-computer',release_public_key:keys.publicKey.export({format:'pem',type:'spki'}).toString()};
  const base='https://github.com/NeuraPawLabs/luoshu-computer/releases/download/v0.2.0/',requests:string[]=[],bodies=new Map<string,Uint8Array>([[base+'manifest.json',manifest],[base+'manifest.sig',sign(null,manifest,keys.privateKey)],[base+'luoshu-computer-0.2.0-linux-x64.tar.gz',archive]]);
  const fetchImpl:typeof fetch=async(input,init)=>{const url=String(input);requests.push(url);expect(init?.redirect).toBe('manual');if(url==='https://api.github.com/repos/NeuraPawLabs/luoshu-computer/releases/latest')return Response.json({tag_name:'v0.2.0',draft:false,prerelease:false});const body=bodies.get(url);return body?new Response(body):new Response(null,{status:404});};

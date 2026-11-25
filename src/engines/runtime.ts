@@ -1,3 +1,4 @@
+import {requiredDeviceEngineFeatures} from '../protocol/index.js';
 import type {WorkerClient} from '../runtime/client.js';
 import {CodexAppServerPool} from './codex-pool.js';
 import {CodexSessionStore} from './session-store.js';
@@ -36,5 +37,5 @@ export function attachAssistantEngine(options:{client:WorkerClient;stateDir:stri
  const unloadIdle=()=>service.releaseIdle();
  client.onAssistantEngineDisconnected=()=>service.disconnect();
  let closing:Promise<void>|undefined;
- return{service,store,unloadIdle,audit:()=>pool.audit(options.workerId),describe:():DeviceServiceReport=>({id:'assistant-engine',type:'assistant_engine',version:'1',agent_id:'codex',status:closed||!executable?'unavailable':'ready',reason:closed?'engine_closed':!executable?'agent_not_detected':null,features:['session_resume','turn_status','turn_interrupt','interaction_response','structured_events','attachments','task_operations','delivery','core_agent_runtime','agent_network']}),applyConfig(config:{agent_paths?:Partial<Record<'codex'|'opencode',string>>}){executable=config.agent_paths?.codex;pool.setExecutable(executable);},close(){if(closing)return closing;closed=true;closing=(async()=>{await service.close();await pool.close();client.onAssistantEngineRequest=undefined;client.onAssistantEngineDisconnected=undefined;})();return closing;}};
+ return{service,store,unloadIdle,audit:()=>pool.audit(options.workerId),describe:():DeviceServiceReport=>({id:'assistant-engine',type:'assistant_engine',version:'1',agent_id:'codex',status:closed||!executable?'unavailable':'ready',reason:closed?'engine_closed':!executable?'agent_not_detected':null,features:[...requiredDeviceEngineFeatures]}),applyConfig(config:{agent_paths?:Partial<Record<'codex'|'opencode',string>>}){executable=config.agent_paths?.codex;pool.setExecutable(executable);},close(){if(closing)return closing;closed=true;closing=(async()=>{await service.close();await pool.close();client.onAssistantEngineRequest=undefined;client.onAssistantEngineDisconnected=undefined;})();return closing;}};
 }

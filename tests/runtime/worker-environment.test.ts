@@ -11,7 +11,7 @@ describe('worker environment and identity', () => {
       probe: async (tool) => ({ git: 'git version 2.45.1', node: 'v22.4.0', codex: 'codex-cli 0.154.0' })[tool],
       services:[{id:'development',type:'development',version:'1',agent_id:null,status:'ready',reason:null,features:['browse','repository','native_history','terminal','codebase_preparation']}],
     });
-    expect(report).toMatchObject({platform:{computer_version:expect.any(String)},protocol_version:9,report_revision:1});expect(report.agents).toEqual(expect.arrayContaining([{id:'codex',version:'0.154.0',detected:true}]));
+    expect(report).toMatchObject({platform:{computer_version:expect.any(String)},protocol_version:10,report_revision:1});expect(report.agents).toEqual(expect.arrayContaining([{id:'codex',version:'0.154.0',detected:true}]));
     expect(report.software).toEqual(expect.arrayContaining([{id:'git',version:'2.45.1',detected:true},{id:'node',version:'22.4.0',detected:true}]));
     expect(JSON.stringify(report)).not.toContain('luoshu.');
   });
@@ -20,7 +20,7 @@ describe('worker environment and identity', () => {
     const report=await buildEnvironmentReport({name:'desk',capacity:1,probe:async tool=>({node:'v22.1.0',opencode:'opencode 1.2.3'} as Record<string,string>)[tool]});
     expect(report.software).toEqual(expect.arrayContaining([{id:'node',version:'22.1.0',detected:true},{id:'opencode',version:'1.2.3',detected:true}]));
     expect(report.agents).toEqual([{id:'codex',version:null,detected:false},{id:'opencode',version:'1.2.3',detected:true}]);
-    expect(report.protocol_version).toBe(9);
+    expect(report.protocol_version).toBe(10);
     expect(report.services).toEqual([]);
   });
 

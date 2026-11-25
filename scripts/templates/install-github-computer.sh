@@ -75,7 +75,7 @@ openssl pkeyutl -verify -pubin -inkey "$work/public.pem" -rawin -in "$work/manif
 python3 - "$work/manifest.json" "$version" > "$work/archive-info" <<'PY'
 import json,re,sys
 manifest=json.load(open(sys.argv[1]));version=sys.argv[2]
-if set(manifest)!= {'version','protocol_version','releases'} or manifest['version']!=version or type(manifest['protocol_version']) is not int or manifest['protocol_version']!=9:
+if set(manifest)!= {'version','protocol_version','releases'} or manifest['version']!=version or type(manifest['protocol_version']) is not int or manifest['protocol_version']!=10:
     sys.exit('Computer release version or protocol mismatch')
 release=manifest['releases'].get('linux-x64',{})
 if set(release)!= {'path','size','sha256'} or release['path']!=f'/computer/releases/{version}/linux-x64.tar.gz' or type(release['size']) is not int or not 0<release['size']<=524288000 or not re.fullmatch(r'[a-f0-9]{64}',str(release['sha256'])):
@@ -123,7 +123,6 @@ if [ "${1:-}" = daemon ]; then
   fi
 fi
 entry="${ROOT}/current/app/dist/main.js"
-[ -f "$entry" ] || entry="${ROOT}/current/app/apps/worker/dist/computer-main.js"
 exec "${ROOT}/current/runtime/node" "$entry" "$@"
 LAUNCHER
 chmod 0755 "$work/launcher"

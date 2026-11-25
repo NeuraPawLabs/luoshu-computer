@@ -177,7 +177,7 @@ test('real native loaded-thread behavior returning its old profile cannot start 
   expect(JSON.parse(store.session('session')!.policy_json!)).toEqual(saved);
  }finally{db.close();}
 });
-const binding={session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,device_id:'worker',agent:'codex' as const,adapter_version:1}};
+const binding={role:'main' as const, session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,device_id:'worker',agent:'codex' as const,adapter_version:1}};
 test('prepare maps a workspace through the Worker resolver and persists one thread',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client),{workspacePath:async id=>id==='workspace'?'/home/alice/luoshu':null});
  const prepared=await service.prepare({session_key:'conversation:agent:alice:1',binding,execution_workspace_id:'workspace'});expect(prepared).toMatchObject({native_thread_id:'thread-1'});expect(rpc.calls).toMatchObject([['thread/start',{cwd:'/home/alice/luoshu',serviceName:'luoshu',permissionScope:{cwd:'/home/alice/luoshu'},approvalPolicy:nativeApprovalPolicy,approvalsReviewer:'user'}]]);expect(await service.prepare({session_key:'conversation:agent:alice:1',binding,execution_workspace_id:'workspace'})).toEqual(prepared);expect(rpc.calls).toHaveLength(1);db.close();
@@ -201,11 +201,11 @@ test('resolved native model policy persists and a silently changed resume never 
 });
 test('first submit creates one native thread; later submit reuses the loaded thread',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client));
- const binding={session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1} as const};
- const firstInput=[{type:'text',text:'hello'}],first=await service.submit({session_key:'conversation:agent:alice:1',binding,cwd:'/tmp/workspace',input:firstInput,input_sha256:createHash('sha256').update(JSON.stringify(firstInput)).digest('hex'),submission_id:'11111111-1111-4111-8111-111111111111'});
+ const binding={role:'main' as const, session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1} as const};
+ const firstInput=[{type:'text',text:'hello'}],first=await service.submit({session_key:'conversation:agent:alice:1',output_schema:{type:'object'},binding,cwd:'/tmp/workspace',input:firstInput,input_sha256:createHash('sha256').update(JSON.stringify(firstInput)).digest('hex'),submission_id:'11111111-1111-4111-8111-111111111111'});
  expect(first.native_thread_id).toBe('thread-1');expect(first.turn_id).toBe('turn-1');
  store.settle('conversation:agent:alice:1',first.native_thread_id,first.turn_id,'completed');
- const secondInput=[{type:'text',text:'again'}],second=await service.submit({session_key:'conversation:agent:alice:1',binding,cwd:'/tmp/workspace',input:secondInput,input_sha256:createHash('sha256').update(JSON.stringify(secondInput)).digest('hex'),submission_id:'22222222-2222-4222-8222-222222222222'});
+ const secondInput=[{type:'text',text:'again'}],second=await service.submit({session_key:'conversation:agent:alice:1',output_schema:{type:'object'},binding,cwd:'/tmp/workspace',input:secondInput,input_sha256:createHash('sha256').update(JSON.stringify(secondInput)).digest('hex'),submission_id:'22222222-2222-4222-8222-222222222222'});
  expect(second.native_thread_id).toBe('thread-1');expect(rpc.calls.map(c=>c[0])).toEqual(['thread/start','turn/start','turn/start']);
  db.close();
 });
@@ -220,7 +220,7 @@ test('loaded thread cannot reuse a saved approval policy permitting escalation',
  }finally{db.close();}
 });
 function submission(id='submission'){
- const input=[{type:'text',text:'once'}];return{session_key:'session',binding:{...binding,engine:{...binding.engine,adapter_version:1 as const}},cwd:'/fixture/workspace',input,input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),submission_id:id};
+ const input=[{type:'text',text:'once'}];return{session_key:'session',output_schema:{type:'object'},binding:{...binding,engine:{...binding.engine,adapter_version:1 as const}},cwd:'/fixture/workspace',input,input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),submission_id:id};
 }
 test('running turn locks its session even after acknowledgement and across service instances',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client));
@@ -270,8 +270,8 @@ test('concurrent duplicate submission reuses one outstanding promise and native 
  try{const [one,two]=await Promise.all([service.submit(submission()),service.submit(submission())]);expect(one).toEqual(two);expect(rpc.calls.filter(c=>c[0]==='turn/start')).toHaveLength(1);}finally{db.close();}
 });
 test('duplicate submission is idempotent; same ID with changed input conflicts',async()=>{
- const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client)),binding={session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1} as const};
- const inputBody=[{type:'text',text:'once'}],input={session_key:'key',binding,cwd:'/tmp/workspace',input:inputBody,input_sha256:createHash('sha256').update(JSON.stringify(inputBody)).digest('hex'),submission_id:'33333333-3333-4333-8333-333333333333'};const one=await service.submit(input),two=await service.submit(input);expect(two).toEqual(one);expect(rpc.calls.filter(c=>c[0]==='turn/start')).toHaveLength(1);await expect(service.submit({...input,input_sha256:'b'.repeat(64)})).rejects.toThrow(/conflict|digest/i);db.close();
+ const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client)),binding={role:'main' as const, session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1} as const};
+ const inputBody=[{type:'text',text:'once'}],input={session_key:'key',output_schema:{type:'object'},binding,cwd:'/tmp/workspace',input:inputBody,input_sha256:createHash('sha256').update(JSON.stringify(inputBody)).digest('hex'),submission_id:'33333333-3333-4333-8333-333333333333'};const one=await service.submit(input),two=await service.submit(input);expect(two).toEqual(one);expect(rpc.calls.filter(c=>c[0]==='turn/start')).toHaveLength(1);await expect(service.submit({...input,input_sha256:'b'.repeat(64)})).rejects.toThrow(/conflict|digest/i);db.close();
 });
 test('interrupt acknowledgement retains lock until exact native terminal reconciliation',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client));let nativeStatus='inProgress';
@@ -297,7 +297,7 @@ test('unacknowledged native turn cannot be identified by similar input on reconc
  try{await expect(service.submit(submission())).rejects.toThrow();expect(await service.reconcile('session')).toBe('unknown');expect(reads).toBe(0);expect(store.active('session')).toBeDefined();}finally{db.close();}
 });
 test('session binding revision change refuses thread reuse and unknown native turn is explicit',async()=>{
- const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client)),base={session_key:'key',binding:{session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1} as const},input:[{type:'text',text:'once'}],input_sha256:'a'.repeat(64),submission_id:'44444444-4444-4444-8444-444444444444'};
+ const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client)),base={session_key:'key',output_schema:{type:'object'},binding:{role:'main' as const, session_id:'conversation',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1} as const},input:[{type:'text',text:'once'}],input_sha256:'a'.repeat(64),submission_id:'44444444-4444-4444-8444-444444444444'};
  const digest=createHash('sha256').update(JSON.stringify(base.input)).digest('hex');await service.submit({...base,cwd:'/tmp/workspace',input_sha256:digest});const nextInput=[{type:'text',text:'next'}];await expect(service.submit({...base,cwd:'/tmp/workspace',submission_id:'55555555-5555-4555-8555-555555555555',binding:{...base.binding,authorization_revision:2},input:nextInput,input_sha256:createHash('sha256').update(JSON.stringify(nextInput)).digest('hex')})).rejects.toThrow(/authorization|binding|revision/i);db.close();
 });
 test('reconciliation persists recovered final content before releasing its session lock',async()=>{

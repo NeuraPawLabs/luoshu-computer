@@ -26,17 +26,18 @@ test.each(['installer','updater'])('%s launcher only consumes rollback attempts 
  }finally{await rm(home,{recursive:true,force:true});}
 });
 
-test('updater launcher starts a flat build and still starts a legacy build after rollback',async()=>{
+test('updater uses only the current entry point, including after rollback',async()=>{
  const home=await mkdtemp(join(tmpdir(),'launcher-flat-'));
  try{
   const root=join(home,'.local/share/luoshu-computer'),build=join(root,'versions/new'),old=join(root,'versions/old'),log=join(home,'entry');
   for(const dir of [build,old]){await mkdir(join(dir,'runtime'),{recursive:true});await writeFile(join(dir,'runtime/node'),`#!/bin/sh\nprintf '%s' "$1" > '${log}'\n`,{mode:0o755});}
   await mkdir(join(build,'app/dist'),{recursive:true});await writeFile(join(build,'app/dist/main.js'),'flat entry');
-  await mkdir(join(old,'app/apps/worker/dist'),{recursive:true});await writeFile(join(old,'app/apps/worker/dist/computer-main.js'),'legacy entry');
+  await mkdir(join(old,'app/dist'),{recursive:true});await writeFile(join(old,'app/dist/main.js'),'previous release entry');
   await symlink(build,join(root,'current'));const executable=join(home,'launcher');
   await updateComputerLauncher({root,state:join(root,'state'),versions:join(root,'versions'),current:join(root,'current'),executable,service:join(home,'service')});
+  expect(await readFile(executable,'utf8')).not.toContain('app/apps/worker');
   await exec(executable,['status']);expect(await readFile(log,'utf8')).toBe(join(root,'current/app/dist/main.js'));
   await writeFile(join(root,'rollback-version'),old);await writeFile(join(root,'update-attempted'),'');await exec(executable,['daemon']);
-  expect(await readlink(join(root,'current'))).toBe(old);expect(await readFile(log,'utf8')).toBe(join(root,'current/app/apps/worker/dist/computer-main.js'));
+  expect(await readlink(join(root,'current'))).toBe(old);expect(await readFile(log,'utf8')).toBe(join(root,'current/app/dist/main.js'));
  }finally{await rm(home,{recursive:true,force:true});}
 });

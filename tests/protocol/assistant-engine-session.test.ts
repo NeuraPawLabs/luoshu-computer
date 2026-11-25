@@ -41,23 +41,23 @@ test('bindings reject missing revisions and credential fields', () => {
   expect(engineBindingSchema.safeParse({...binding, credentials: {token: 'secret'}}).success).toBe(false);
 });
 
-test('topic bindings freeze a positive context generation while legacy JSON remains unchanged', () => {
-  const legacy = engineBindingFixture();
-  expect(JSON.stringify(engineBindingSchema.parse(legacy))).toBe(JSON.stringify(legacy));
-  const topic = {...legacy, topic_thread_id: 'topic_1', context_generation: 1};
+test('topic bindings freeze a positive context generation and keep the base binding intact', () => {
+  const base = engineBindingFixture();
+  expect(engineBindingSchema.parse(base)).toEqual(base);
+  const topic = {...base, topic_thread_id: 'topic_1', context_generation: 1};
   expect(engineBindingSchema.parse(topic)).toEqual(topic);
-  expect(engineBindingSchema.safeParse({...legacy, topic_thread_id: 'topic_1'}).success).toBe(false);
-  expect(engineBindingSchema.safeParse({...legacy, context_generation: 1}).success).toBe(false);
+  expect(engineBindingSchema.safeParse({...base, topic_thread_id: 'topic_1'}).success).toBe(false);
+  expect(engineBindingSchema.safeParse({...base, context_generation: 1}).success).toBe(false);
   expect(engineBindingSchema.safeParse({...topic, context_generation: 0}).success).toBe(false);
 });
 
 
-test('Core model decisions require a role-bound schema and cannot carry Worker codebase authority', () => {
- const legacy=engineSubmissionFixture();
- const core={...legacy,binding:{...legacy.binding,role:'core'},output_schema:{type:'object',properties:{text:{type:'string'}}}};
- expect(engineSubmissionSchema.safeParse(core).success).toBe(true);
- expect(engineSubmissionSchema.safeParse({...core,output_schema:undefined}).success).toBe(false);
- expect(engineSubmissionSchema.safeParse({...legacy,output_schema:core.output_schema}).success).toBe(false);
- expect(engineBindingSchema.safeParse({...legacy.binding,role:'worker'}).success).toBe(true);
- expect(engineBindingSchema.safeParse({...legacy.binding,role:'admin'}).success).toBe(false);
+
+
+test('the device protocol accepts only network roles with structured output',()=>{
+ const fixture=engineSubmissionFixture();
+ const input={...fixture,binding:{...fixture.binding,role:'main'},output_schema:{type:'object'}};
+ expect(engineSubmissionSchema.safeParse(input).success).toBe(true);
+ for(const role of [undefined,'core','worker'])expect(engineSubmissionSchema.safeParse({...input,binding:{...input.binding,role}}).success).toBe(false);
+ expect(engineSubmissionSchema.safeParse({...input,output_schema:undefined}).success).toBe(false);
 });

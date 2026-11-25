@@ -10,7 +10,7 @@ function fixture(){
  const root=mkdtempSync(join(tmpdir(),'computer-publish-')),bundle=join(root,'bundle'),bin=join(root,'bin'),log=join(root,'calls.jsonl');mkdirSync(bundle);mkdirSync(bin);
  const bytes=Buffer.from('verified payload'),artifact='luoshu-computer-0.1.6-linux-x64.tar.gz',sha256=createHash('sha256').update(bytes).digest('hex');
  const names=[artifact,'luoshu-computer-source-0.1.6.tar.gz','manifest.json','install.sh'];
- const manifest={version:'0.1.6',tag:'v0.1.6',commit:'a'.repeat(40),protocol_version:9,prerelease:true,signature:'none',artifacts:names.map(name=>({name,size:bytes.length,sha256}))};
+ const manifest={version:'0.1.6',tag:'v0.1.6',commit:'a'.repeat(40),protocol_version:10,prerelease:true,signature:'none',artifacts:names.map(name=>({name,size:bytes.length,sha256}))};
  for(const name of names)writeFileSync(join(bundle,name),bytes);
  writeFileSync(join(bundle,'SHA256SUMS'),names.map(name=>`${sha256}  ${name}\n`).join(''));writeFileSync(join(bundle,'release-notes.md'),'Unsigned Computer prerelease\n');writeFileSync(join(bundle,'release.json'),JSON.stringify(manifest));
  writeFileSync(join(bin,'gh'),`#!/usr/bin/env node\nconst fs=require('fs');const args=process.argv.slice(2);fs.appendFileSync(process.env.TEST_GH_LOG,JSON.stringify(args)+'\\n');if(args[0]==='api'){const repository=process.env.TEST_OMIT_REPOSITORY_PERMISSIONS?{full_name:'NeuraPawLabs/luoshu-computer',private:false}:{full_name:'NeuraPawLabs/luoshu-computer',private:false,permissions:{push:true}};console.log(JSON.stringify(args[1].includes('/git/ref/')?{object:{type:'commit',sha:process.env.TEST_TAG_SHA||'a'.repeat(40)}}:repository));}else if(args[0]==='release'&&args[1]==='view')process.exit(1);\n`,{mode:0o755});

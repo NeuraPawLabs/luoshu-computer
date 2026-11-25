@@ -16,7 +16,7 @@ const device = {kind: 'device', device_id: 'worker_1', agent: 'codex', adapter_v
 
 test('a device engine does not need a Core model connection', () => {
   expect(agentEngineConfigSchema.parse(device)).toEqual(device);
-  expect(agentEngineConfigSchema.parse(builtin)).toEqual(builtin);
+  expect(agentEngineConfigSchema.safeParse(builtin).success).toBe(false);
 });
 
 test.each([

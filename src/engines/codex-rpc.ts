@@ -7,7 +7,7 @@ import type {NativePermissions} from './native-permissions.js';
 import {snapshotNativeExecutable,type NativeExecutableSnapshot} from './native-executable.js';
 import {assertSystemdUserAvailable,spawnSystemdSupervisor} from './native-systemd-supervisor.js';
 import type {NativeUnitLease} from './native-unit-registry.js';
-import {coreToolConfig} from './core-tool-config.js';
+import {restrictedTaskToolConfig} from './task-tool-config.js';
 
 export interface CodexRpcProcess {
  confirmNativeExit?:()=>Promise<void>;
@@ -171,16 +171,11 @@ export class CodexAppServerClient {
   if(!parsed.success)throw Error('Native effective configuration is unavailable');
   if(Object.hasOwn(parsed.data.config.permissions??{},id))throw Error('Native permission profile name collides with inherited configuration');
  }
- async coreThreadConfig(cwd:string):Promise<Record<string,unknown>>{
-  const value=await this.request<unknown>('config/read',{cwd,includeLayers:false});
-  const config=z.object({config:z.object({mcp_servers:z.record(z.string(),z.unknown()).nullish()})}).parse(value);
-  return coreToolConfig(config.config.mcp_servers??{});
- }
  async taskThreadConfig(cwd:string):Promise<Record<string,unknown>>{
   const value=await this.request<unknown>('config/read',{cwd,includeLayers:false});
   const {config}=z.object({config:z.object({mcp_servers:z.record(z.string(),z.unknown()).nullish(),
    shell_environment_policy:z.object({set:z.record(z.string(),z.unknown()).nullish()}).nullish()})}).parse(value);
-  return{...coreToolConfig(config.mcp_servers??{}),'features.shell_tool':true,'features.unified_exec':true,'features.apply_patch_freeform':true,
+  return{...restrictedTaskToolConfig(config.mcp_servers??{}),'features.shell_tool':true,'features.unified_exec':true,'features.apply_patch_freeform':true,
    'shell_environment_policy.inherit':'none','shell_environment_policy.include_only':[],'shell_environment_policy.exclude':['*'],
    // Config tables merge; explicitly replace every inherited value rather
    // than sending an empty set that could retain configured credentials.

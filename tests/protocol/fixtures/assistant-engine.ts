@@ -2,7 +2,7 @@ export function engineBindingFixture() {
   return {
     session_id: 'conversation_1', agent_id: 'agent_1', actor_id: 'alice',
     agent_revision: 1, authorization_revision: 1,
-    engine: {kind: 'device', device_id: 'worker_1', agent: 'codex', adapter_version: 1},
+    role: 'main' as const, engine: {kind: 'device', device_id: 'worker_1', agent: 'codex', adapter_version: 1},
   };
 }
 
@@ -11,7 +11,7 @@ export function engineSubmissionFixture() {
     submission_id: 'submission_1', run_id: 'run_1',
     engine_session_id: 'session_1', binding: engineBindingFixture(),
     input_message_ids: ['message_1'], context_message_ids: [],
-    input_sha256: 'a'.repeat(64), task_id: null, task_revision: null,
+    input_sha256: 'a'.repeat(64), task_id: null, task_revision: null,output_schema:{type:'object'},
   };
 }
 

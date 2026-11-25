@@ -52,13 +52,13 @@ const initParams={clientInfo:{name:'luoshu',version:'test'},capabilities:{experi
 const initResult={userAgent:'codex/0.160.0',platformFamily:'unix',platformOs:'linux',codexHome:'/fixture'};
 const permissionScope=nativePermissions({session:'rpc-test',cwd:'/fixture',runtime:'/opt/codex',read:[],write:[]});
 const provenance={activePermissionProfile:{id:permissionScope.id,extends:null},runtimeWorkspaceRoots:['/fixture']};
-test('Core thread config disables inherited MCP servers without forwarding credentials or changing Worker config',async()=>{
+test('independent task thread config disables inherited MCP servers without forwarding credentials',async()=>{
  const {process,client}=await ready();try{
-  const pending=client.coreThreadConfig('/fixture');
+  const pending=client.taskThreadConfig('/fixture');
   expect(process.sent.at(-1)).toMatchObject({method:'config/read',params:{cwd:'/fixture',includeLayers:false}});
   process.respond(process.sent.at(-1).id,{config:{mcp_servers:{'local.tools':{enabled:true,required:true,bearer_token:'PRIVATE_TOKEN'},simple:{command:'native-command'}}}});
   const config=await pending;
-  expect(config).toMatchObject({mcp_servers:{'local.tools':{enabled:false,required:false},simple:{enabled:false,required:false}},'features.shell_tool':false,'features.view_image':false,'features.goals':false,'features.token_budget':false,'features.current_time_reminder':false,'features.deferred_executor':false,notify:[],project_doc_max_bytes:0,web_search:'disabled'});
+  expect(config).toMatchObject({mcp_servers:{'local.tools':{enabled:false,required:false},simple:{enabled:false,required:false}},'features.shell_tool':true,'features.view_image':false,'features.goals':false,'features.token_budget':false,'features.current_time_reminder':false,'features.deferred_executor':false,notify:[],project_doc_max_bytes:0,web_search:'disabled'});
   expect(JSON.stringify(config)).not.toContain('PRIVATE_TOKEN');expect(JSON.stringify(config)).not.toContain('native-command');
   expect(process.sent.some(r=>r.method.startsWith('config/value')||r.method.startsWith('config/batch'))).toBe(false);
  }finally{await client.close();}

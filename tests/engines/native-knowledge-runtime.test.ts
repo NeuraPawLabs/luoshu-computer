@@ -14,7 +14,7 @@ import type {EngineWireEvent,EngineSubmission,KnowledgeReadResult} from '../../s
 
 const exec=promisify(execFile),codebase='11111111-1111-4111-8111-111111111111';
 const sha=(value:string)=>createHash('sha256').update(value).digest('hex');
-const binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,device_id:'worker',agent:'codex' as const,adapter_version:1 as const}};
+const binding={role:'main' as const, session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:1,engine:{kind:'device' as const,device_id:'worker',agent:'codex' as const,adapter_version:1 as const}};
 const control={request_id:'receipt',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:1,turn_id:'turn'};
 async function fixture(access?:'read'|'write',transport?:(event:EngineWireEvent)=>Promise<void>){
  const root=await mkdtemp(join(tmpdir(),'native-knowledge-runtime-')),state=join(root,'state'),source=join(root,'source');await mkdir(state);await mkdir(source);
@@ -24,7 +24,7 @@ async function fixture(access?:'read'|'write',transport?:(event:EngineWireEvent)
  const sent=vi.spyOn(client,'send').mockImplementation(async packet=>{events.push(packet as EngineWireEvent);await transport?.(packet as EngineWireEvent);});let exited=false;
  const native:any={get hasExited(){return exited;},initialize:async()=>({}),startThread:async(params:any)=>{starts.push(params);return{id:'thread'};},resumeThread:async()=>({id:'thread'}),startTurn:async(params:any)=>{turns.push(params);return{id:'turn'};},interruptTurn:async()=>{},close:async()=>{exited=true;}};
  const engine=attachAssistantEngine({client,stateDir:state,workerId:'worker',rootPolicy:new DevelopmentRootPolicy({roots:[source]}),rpcFactory:()=>withNativePolicy(native)});
- const input=[{type:'text' as const,text:JSON.stringify({luoshu_knowledge_context:{snapshot_id:'snapshot',run_id:'run',scopes:[{kind:'codebase',id:codebase}],entries:[]}})}],submission:EngineSubmission={engine_session_id:'session',submission_id:'submission',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:sha(JSON.stringify(input)),task_id:null,task_revision:null,...(access?{codebases:[{id:codebase,alias:'app',access_mode:access,source:{kind:'local',path:source},root_path:'.',default_branch:'main'}]}:{})};
+ const input=[{type:'text' as const,text:JSON.stringify({luoshu_knowledge_context:{snapshot_id:'snapshot',run_id:'run',scopes:[{kind:'codebase',id:codebase}],entries:[]}})}],submission:EngineSubmission={engine_session_id:'session',submission_id:'submission',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:sha(JSON.stringify(input)),task_id:null,task_revision:null,output_schema:{type:'object'},...(access?{codebases:[{id:codebase,alias:'app',access_mode:access,source:{kind:'local',path:source},root_path:'.',default_branch:'main'}]}:{})};
  let checkout:string|undefined;
  if(access){const prepared=await engine.service.handle({action:'workspace_prepare',request_id:'workspace',execution_workspace_id:'workspace',submission,input_files:[],lease_ms:120000});if(prepared.action!=='workspace_prepare')throw Error('Expected Codebase preparation');checkout=prepared.codebases[0]!.checkout_path;}
  await engine.service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:'session',binding,execution_workspace_id:'workspace',...(access?{resources:{run_id:'run',submission_id:'submission'}}:{})});

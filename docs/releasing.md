@@ -1,6 +1,6 @@
 # Release procedure
 
-Computer versions are independent of Core. The first public version is **0.1.0**, current source wire protocol **9**, packaged for Linux x64 with systemd 254+ and cgroup v2.
+Computer versions are independent of Core. The first public version is **0.1.0**, current source wire protocol **10**, packaged for Linux x64 with systemd 254+ and cgroup v2.
 
 ## One-time signing configuration
 
@@ -21,7 +21,7 @@ No TLS certificate or manually created GitHub token is required. Actions uses it
 
 ## Publish a version
 
-1. Update root `package.json`, `src/cli/version.ts`, `package-lock.json` and `docs/compatibility.md` together when changing versions.
+1. Update root `package.json`, `src/cli/version.ts`, `package-lock.json` and `docs/device-protocol.md` together when changing versions.
 2. Run `npm ci`, `npm run build`, `npm run lint`, `npm test`, `npm run package` and `npm run test:package`.
 3. Commit the reviewed code on `main`. Tag that exact commit, then push main and the tag:
 

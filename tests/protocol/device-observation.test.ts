@@ -1,15 +1,15 @@
 import { expect, test } from 'vitest';
 import vectors from './fixtures/device-observation.json' with { type: 'json' };
-import { deviceObservationSchema, developmentPolicySchema, deviceConfigurationResponseSchema, PROTOCOL_VERSION } from '../../src/protocol/index.js';
+import { deviceObservationSchema, deviceServiceReportSchema, requiredDeviceEngineFeatures, developmentPolicySchema, deviceConfigurationResponseSchema, PROTOCOL_VERSION } from '../../src/protocol/index.js';
 
-test('v9 observation rejects control fields and obsolete support flags', () => {
+test('v10 observation rejects control fields and obsolete support flags', () => {
   const observation = vectors[0];
-  expect(PROTOCOL_VERSION).toBe(9);
+  expect(PROTOCOL_VERSION).toBe(10);
   expect(deviceObservationSchema.safeParse(observation).success).toBe(true);
   for (const extra of [{development:true},{approved_agents:['codex']},{name:'rewrite'}, {tools:{'luoshu.worker_config':'1'}}]) {
     expect(deviceObservationSchema.safeParse({...observation,...extra}).success).toBe(false);
   }
-  expect(deviceObservationSchema.safeParse({...observation,protocol_version:8}).success).toBe(false);
+  expect(deviceObservationSchema.safeParse({...observation,protocol_version:9}).success).toBe(false);
   expect(developmentPolicySchema.safeParse({mode:'custom',roots:[]}).success).toBe(false);
 });
 
@@ -52,3 +52,10 @@ test('configuration responses bind outer status and revision to the actual state
   }
 });
 
+
+
+test('a ready Agent device reports the current native features without a compatibility flag',()=>{
+ const service={id:'assistant-engine',type:'assistant_engine',version:'1',agent_id:'codex',status:'ready',reason:null,features:[...requiredDeviceEngineFeatures]};
+ expect(deviceServiceReportSchema.safeParse(service).success).toBe(true);
+ for(const flag of ['agent_network','core_agent_runtime'])expect(deviceServiceReportSchema.safeParse({...service,features:[...service.features,flag]}).success).toBe(false);
+});

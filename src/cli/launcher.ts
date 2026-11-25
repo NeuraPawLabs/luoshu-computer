@@ -18,7 +18,6 @@ if [ "\${1:-}" = 'daemon' ]; then
   fi
 fi
 entry="\${ROOT}/current/app/dist/main.js"
-[ -f "$entry" ] || entry="\${ROOT}/current/app/apps/worker/dist/computer-main.js"
 exec "\${ROOT}/current/runtime/node" "$entry" "$@"
 `;
   await mkdir(dirname(paths.executable),{recursive:true,mode:0o700});

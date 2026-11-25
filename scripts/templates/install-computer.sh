@@ -17,6 +17,8 @@ if [ -n "${LUOSHU_RELEASE_KEY:-}" ]; then
   fetch "${BASE_URL}/computer/manifest.sig" "$signature"
   openssl pkeyutl -verify -pubin -inkey "$LUOSHU_RELEASE_KEY" -rawin -in "$manifest" -sigfile "$signature" >/dev/null || { echo 'Computer release signature verification failed' >&2; exit 1; }
 fi
+protocol=$(sed -n 's/.*"protocol_version"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*[,}].*/\1/p' "$manifest")
+[ "$protocol" = '__LUOSHU_PROTOCOL_VERSION__' ] || { echo 'Unsupported Computer release protocol' >&2; exit 1; }
 version=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
 sha=$(sed -n 's/.*"sha256"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
 path=$(sed -n 's/.*"path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")
@@ -49,7 +51,6 @@ if [ "${1:-}" = 'daemon' ]; then
   fi
 fi
 entry="${ROOT}/current/app/dist/main.js"
-[ -f "$entry" ] || entry="${ROOT}/current/app/apps/worker/dist/computer-main.js"
 exec "${ROOT}/current/runtime/node" "$entry" "$@"
 LAUNCHER
 chmod 0755 "${BIN_DIR}/luoshu-computer"

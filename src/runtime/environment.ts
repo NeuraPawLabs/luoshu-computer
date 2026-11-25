@@ -65,7 +65,7 @@ export async function buildEnvironmentReport(options: EnvironmentOptions): Promi
   const agents=ids.map(id=>({id,version:detected[id]??null,detected:Boolean(detected[id])}));
   const software=Object.entries(detected).map(([id,ver])=>({id,version:ver,detected:true}));
   const services=(options.services??[]).map(service=>deviceObservationSchema.shape.services.element.parse(service));
-  const report={protocol_version:PROTOCOL_VERSION as 9,report_revision:1,platform:{os:platform(),arch:arch(),computer_version:options.computerVersion??COMPUTER_VERSION},software,agents,services,git_credentials:options.gitCredentials??[]};
+  const report={protocol_version:PROTOCOL_VERSION,report_revision:1,platform:{os:platform(),arch:arch(),computer_version:options.computerVersion??COMPUTER_VERSION},software,agents,services,git_credentials:options.gitCredentials??[]};
   return deviceObservationSchema.parse(report);
 }
 

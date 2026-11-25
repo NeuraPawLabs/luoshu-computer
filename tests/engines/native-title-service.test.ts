@@ -6,7 +6,7 @@ import {CodexSessionStore} from '../../src/engines/session-store.js';
 import {withNativePolicy} from '../helpers/native-policy.js';
 import type {EngineWireEvent} from '../../src/protocol/index.js';
 
-const binding={session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:2,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}};
+const binding={role:'main' as const, session_id:'room',agent_id:'agent',actor_id:'alice',agent_revision:1,authorization_revision:2,engine:{kind:'device',device_id:'worker',agent:'codex',adapter_version:1}};
 const control={request_id:'title-receipt',engine_session_id:'session',submission_id:'submission',run_id:'run',authorization_revision:2,turn_id:'turn',call_id:'native-call'};
 const result={success:true,updated:true,title:'公司研究',version:2};
 describe.each([
@@ -19,7 +19,7 @@ async function fixture(transport?:(event:EngineWireEvent)=>void|Promise<void>){
  const service=new CodexEngineService(store,'worker',()=>withNativePolicy(rpc),{workspacePath:async()=>'/fixture',emit:event=>{events.push(event);return transport?.(event);},authorized:()=>authorized,generation:()=>generation});
  await service.handle({action:'session_prepare',request_id:'prepare',engine_session_id:'session',binding,execution_workspace_id:'workspace'});
  const input=[{type:'text',text:JSON.stringify({luoshu_conversation_context:{title_source:'provisional',title_version:1}})}];
- await service.handle({action:'submit',request_id:'submit',lease_ms:120000,submission:{engine_session_id:'session',submission_id:'submission',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null},input});
+ await service.handle({action:'submit',request_id:'submit',lease_ms:120000,submission:{engine_session_id:'session',submission_id:'submission',run_id:'run',binding,input_message_ids:['message'],context_message_ids:[],input_sha256:createHash('sha256').update(JSON.stringify(input)).digest('hex'),task_id:null,task_revision:null,output_schema:{type:'object'}},input});
  const call=(patch:Record<string,unknown>={},args:unknown={title:'公司研究',expected_version:1})=>service.serverRequest({id:7,method:'item/tool/call',params:{threadId:'thread',turnId:'turn',callId:'native-call',tool,arguments:args,...patch}}) as Promise<any>;
  return{db,store,service,events,starts,turns,call,setAuthorized:(value:boolean)=>authorized=value,setGeneration:(value:number)=>generation=value,cleanup:async()=>{authorized=true;generation=1;await service.close();db.close();}};
 }

@@ -74,12 +74,12 @@ test('accepts bounded push output events with session state and cursor sequence'
   expect(protocol.workerMessageSchema.safeParse({ ...output, extra: true }).success).toBe(false);
 });
 
-test('v9 rejects the retired independent configuration write paths',()=>{
+test('v10 rejects the retired independent configuration write paths',()=>{
  for(const command of [{action:'roots_update',roots:[],revision:'11111111-1111-4111-8111-111111111111'}, {action:'codex_settings_update',mode:'danger-full-access',expected_revision:'r'}]) expect(protocol.developmentCommandSchema.safeParse(command).success).toBe(false);
  expect(protocol.serverMessageSchema.safeParse({type:'worker_config_read',request_id:'old'}).success).toBe(false);
 });
 
-test('v9 configuration separates desired and actual applied revisions',()=>{
+test('v10 configuration separates desired and actual applied revisions',()=>{
  const config={name:'专用 Codex',capacity:4,agent_paths:{codex:'/opt/codex'},development_policy:{mode:'custom',roots:['/srv/code']},maintenance_roots:[],codex_sandbox:'danger-full-access'};
  const request={type:'device_configuration_request',request_id:'config_1',device_id:'device',connection_generation:2,expected_revision:'original',desired_revision:'next',config};
  expect(protocol.serverMessageSchema.safeParse(request).success).toBe(true);

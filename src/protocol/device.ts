@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { agentIdSchema, idSchema, PROTOCOL_VERSION } from './wire-base.js';
 import { gitHostSchema } from './git.js';
+import { requiredDeviceEngineFeatures } from './assistant-engine.js';
 
 const nonEmpty = z.string().trim().min(1);
 const absolutePath = z.string().min(1).max(4096).startsWith('/').refine(v => !/[\x00-\x1f\x7f]/.test(v));
@@ -23,7 +24,7 @@ const knownServiceTypes = new Set(['development', 'task_execution', 'assistant_e
 const serviceFeatureSchema = z.enum([
   'task_scope', 'live_progress',
   'browse', 'repository', 'native_history', 'terminal', 'codebase_preparation',
-  'session_resume', 'turn_status', 'turn_interrupt', 'interaction_response', 'structured_events', 'attachments', 'task_operations', 'delivery', 'core_agent_runtime', 'agent_network',
+  ...requiredDeviceEngineFeatures,
   'git',
 ]);
 const diagnosticSchema = z.object({
@@ -65,10 +66,10 @@ export const deviceServiceReportSchema = z.object({
   const required: Record<string, string[]> = {
     task_execution: ['task_scope', 'live_progress'],
     development: ['browse', 'repository', 'native_history', 'terminal', 'codebase_preparation'],
-    assistant_engine: ['session_resume', 'turn_status', 'turn_interrupt', 'interaction_response', 'structured_events', 'attachments', 'task_operations', 'delivery', 'core_agent_runtime'],
+    assistant_engine: [...requiredDeviceEngineFeatures],
     maintenance: ['git'],
   };
-  if (knownServiceTypes.has(value.type) && value.features.some(feature => !required[value.type].includes(feature) && !(value.type==='assistant_engine'&&feature==='agent_network'))) {
+  if (knownServiceTypes.has(value.type) && value.features.some(feature => !required[value.type].includes(feature))) {
     ctx.addIssue({ code: 'custom', path: ['features'], message: 'Unsupported feature for service type' });
   }
   if (value.type === 'assistant_engine' && value.status === 'ready' && (value.version !== '1' || value.agent_id !== 'codex')) {
