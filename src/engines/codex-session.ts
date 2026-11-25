@@ -87,7 +87,7 @@ export class CodexSessionService {
  }
  async submit(input:CodexSubmission):Promise<NativeReceipt>{
   input.assertCurrent?.();
-  if(input.binding.role==='core'?!input.output_schema:input.output_schema!==undefined)throw Error('Only Core submissions require a structured output schema');
+  if(input.binding.role==='core'?!input.output_schema:input.output_schema!==undefined&&input.binding.role!=='main'&&input.binding.role!=='subagent')throw Error('Invalid structured output for the native Agent role');
   if(!/^[a-f0-9]{64}$/.test(input.input_sha256)||createHash('sha256').update(JSON.stringify(input.input)).digest('hex')!==input.input_sha256)throw Error('Codex submission input digest mismatch');
   // Exact journal replays do not execute and must remain available after an
   // installation update. New work checks drift before reserving an intent.

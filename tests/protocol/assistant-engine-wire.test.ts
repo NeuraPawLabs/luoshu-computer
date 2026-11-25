@@ -47,3 +47,8 @@ test('inspection requires public interaction outcomes alongside unanswered promp
  expect(engineWireMessageSchema.safeParse({type:'assistant_engine_response',response:missing}).success).toBe(false);
  expect(engineWireMessageSchema.safeParse({type:'assistant_engine_response',response:{...response,interaction_outcomes:[{request_id:'prior',resolution:'unknown'}]}}).success).toBe(false);
 });
+
+test.each(['main','subagent'] as const)('a native %s conversation accepts a structured decision',role=>{
+ const request={action:'submit',lease_ms:120000,request_id:'decision',submission:{submission_id:'submission',run_id:'turn',engine_session_id:'native-session',binding:{...binding,role},input_message_ids:['message'],context_message_ids:[],input_sha256:'a'.repeat(64),task_id:null,task_revision:null,output_schema:{type:'object'}},input:[{type:'text',text:'delegate if useful'}]};
+ expect(engineWireMessageSchema.parse({type:'assistant_engine_request',request})).toEqual({type:'assistant_engine_request',request});
+});

@@ -23,7 +23,7 @@ const knownServiceTypes = new Set(['development', 'task_execution', 'assistant_e
 const serviceFeatureSchema = z.enum([
   'task_scope', 'live_progress',
   'browse', 'repository', 'native_history', 'terminal', 'codebase_preparation',
-  'session_resume', 'turn_status', 'turn_interrupt', 'interaction_response', 'structured_events', 'attachments', 'task_operations', 'delivery', 'core_agent_runtime',
+  'session_resume', 'turn_status', 'turn_interrupt', 'interaction_response', 'structured_events', 'attachments', 'task_operations', 'delivery', 'core_agent_runtime', 'agent_network',
   'git',
 ]);
 const diagnosticSchema = z.object({
@@ -68,7 +68,7 @@ export const deviceServiceReportSchema = z.object({
     assistant_engine: ['session_resume', 'turn_status', 'turn_interrupt', 'interaction_response', 'structured_events', 'attachments', 'task_operations', 'delivery', 'core_agent_runtime'],
     maintenance: ['git'],
   };
-  if (knownServiceTypes.has(value.type) && value.features.some(feature => !required[value.type].includes(feature))) {
+  if (knownServiceTypes.has(value.type) && value.features.some(feature => !required[value.type].includes(feature) && !(value.type==='assistant_engine'&&feature==='agent_network'))) {
     ctx.addIssue({ code: 'custom', path: ['features'], message: 'Unsupported feature for service type' });
   }
   if (value.type === 'assistant_engine' && value.status === 'ready' && (value.version !== '1' || value.agent_id !== 'codex')) {

@@ -128,7 +128,8 @@ export class WorkerClient {
       const generation=this.generation,socket=this.ws;
       try{const response=engineWireResponseSchema.parse(await this.onAssistantEngineRequest(message.request));if(this.authenticated&&this.generation===generation&&this.ws===socket)await this.send({type:'assistant_engine_response',response});}
       catch(error){
-       const capacity=message.request.action==='submit'&&message.request.submission.binding.role==='core'&&(error as {code?:unknown})?.code==='DEVICE_CORE_CAPACITY_UNAVAILABLE'&&(error as {retryable?:unknown})?.retryable===true;
+       const role=message.request.action==='submit'?message.request.submission.binding.role:undefined;
+       const capacity=(role==='core'||role==='main'||role==='subagent')&&(error as {code?:unknown})?.code==='DEVICE_CORE_CAPACITY_UNAVAILABLE'&&(error as {retryable?:unknown})?.retryable===true;
        if(this.authenticated&&this.generation===generation&&this.ws===socket)await this.send({type:'assistant_engine_error',request_id:message.request.request_id,code:capacity?'DEVICE_CORE_CAPACITY_UNAVAILABLE':'ENGINE_REQUEST_FAILED',message:String(error instanceof Error?error.message:error).slice(0,2000),retryable:capacity});
       }
       return;

@@ -268,7 +268,7 @@ export class CodexEngineService {
     const error=Error('Worker assistant engine capacity is full');
     // Only this pre-reservation refusal proves that no Core turn started.
     // Unknown receipts and failures after reservation must never be replayed.
-    throw core?Object.assign(error,{code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true}):error;
+    throw core||binding.role==='main'||binding.role==='subagent'?Object.assign(error,{code:'DEVICE_CORE_CAPACITY_UNAVAILABLE',retryable:true}):error;
    }
    this.store.registerSubmission(request.submission);
    if(request.submission.codebases?.length&&!this.store.submission(request.submission.submission_id))this.assertPreparationAuthority(request.submission.submission_id);

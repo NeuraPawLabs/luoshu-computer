@@ -7,6 +7,17 @@ import {CodexSessionStore,CodexSessionService} from '../../src/engines/codex-ses
 import type {CodexAppServerClient} from '../../src/engines/codex-rpc.js';
 
 function fakeRpc(){let threads=0,turns=0;const calls:any[]=[];return{calls,client:{initialize:async()=>({}),startThread:async(input:any)=>{calls.push(['thread/start',input]);return{id:`thread-${++threads}`};},resumeThread:async(input:any)=>{calls.push(['thread/resume',input]);return{id:input.threadId};},startTurn:async(input:any)=>{calls.push(['turn/start',input]);return{id:`turn-${++turns}`,status:'inProgress'};},interruptTurn:async(input:any)=>{calls.push(['turn/interrupt',input]);},onNotification:undefined} as unknown as CodexAppServerClient};}
+test.each(['main','subagent'] as const)('native %s uses its own tools and returns a structured decision',async role=>{
+ const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc();
+ const service=new CodexSessionService(store,()=>withNativePolicy(rpc.client),{sandboxMode:async()=>'danger-full-access'});
+ const input=submission(),output_schema={type:'object',properties:{text:{type:'string'}},required:['text'],additionalProperties:false};
+ try{
+  await service.submit({...input,binding:{...input.binding,role},output_schema});
+  const thread=rpc.calls.find(c=>c[0]==='thread/start')?.[1],turn=rpc.calls.find(c=>c[0]==='turn/start')?.[1];
+  expect(thread.permissionScope.config).toEqual({filesystem:{':root':'write'},network:{enabled:true}});
+  expect(turn.outputSchema).toEqual(output_schema);
+ }finally{db.close();}
+});
 test('session steering validates active submission and native scope without a new turn',async()=>{
  const db=new Database(':memory:'),store=new CodexSessionStore(db),rpc=fakeRpc(),service=new CodexSessionService(store,()=>withNativePolicy(rpc.client));
  rpc.client.steerTurn=async params=>{rpc.calls.push(['turn/steer',params]);return{turnId:params.expectedTurnId};};

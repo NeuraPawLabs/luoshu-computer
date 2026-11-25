@@ -19,7 +19,7 @@ export const engineBindingSchema = z.object({
   topic_thread_id: idSchema.optional(),
   context_generation: z.number().int().positive().optional(),
   /** Core sessions ask Codex for a decision envelope; Worker sessions execute a task. */
-  role: z.enum(['core','worker']).optional(),
+  role: z.enum(['core','worker','main','subagent']).optional(),
 }).strict().superRefine((value,ctx)=>{
   if((value.topic_thread_id===undefined)!==(value.context_generation===undefined)){
     ctx.addIssue({code:'custom',message:'Topic and context generation must be provided together'});
@@ -55,8 +55,7 @@ export const engineSubmissionSchema = z.object({
   if (value.binding.role === 'core' && value.codebases?.length) {
     ctx.addIssue({code:'custom',path:['codebases'],message:'Core submissions cannot carry Worker codebase authority'});
   }
-  if (value.binding.role !== 'core' && value.output_schema !== undefined) {
-    ctx.addIssue({code:'custom',path:['output_schema'],message:'Only Core submissions may request structured model decisions'});
-  }
+  const decisionRole=value.binding.role==='core'||value.binding.role==='main'||value.binding.role==='subagent';
+  if(value.output_schema!==undefined&&!decisionRole)ctx.addIssue({code:'custom',path:['output_schema'],message:'Structured decisions require an Agent role'});
 });
 export type EngineSubmission = z.infer<typeof engineSubmissionSchema>;
