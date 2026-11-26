@@ -49,6 +49,7 @@ const rootFiles=new Set(['.gitignore','LICENSE','README.md','CONTRIBUTING.md','S
 function publicPath(path){
  if(rootFiles.has(path))return true;
  if(path==='docs/provenance/source-import.json')return true;
+ if(path==='tests/protocol/fixtures/device-observation.json')return true;
  if(/^(?:src|tests)\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:ts|mjs)$/.test(path))return true;
  if(/^scripts\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.(?:mjs|sh)$/.test(path))return true;
  if(/^docs\/(?:[a-zA-Z0-9_.-]+\/)*[a-zA-Z0-9_.-]+\.md$/.test(path))return true;

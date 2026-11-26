@@ -20,6 +20,7 @@ function fixture(t){
  put('.gitignore','node_modules\ndist/\n');put('LICENSE',mit);
  put('package.json',JSON.stringify({name:'luoshu-computer',version:'0.1.6',license:'MIT',type:'module',scripts:{build:'node scripts/package-runtime.mjs',package:'node scripts/package-computer.mjs'}}));
  put('src/runtime/example.ts','export const publicValue = 42;\n');
+ put('tests/protocol/fixtures/device-observation.json','[{"protocol_version":10}]\n');
  put('scripts/templates/install-github-computer.sh','#!/bin/sh\necho verified-github-bootstrap\n');
  put('docs/provenance/source-import.json',JSON.stringify({format:'luoshu-computer-source-v1',upstream:{commit:'a'.repeat(40)}})+'\n');
  const archive=Buffer.from('built:export const publicValue = 42;\n');put('dist/computer/releases/0.1.6/linux-x64.tar.gz',archive);
