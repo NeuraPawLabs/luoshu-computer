@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { computerDoctor, computerStatus, uninstallComputer } from '../../src/cli/diagnostics.js';
+import { COMPUTER_VERSION } from '../../src/cli/version.js';
 
 test('doctor distinguishes missing service, unreachable Core, and missing Agents', async () => {
   const checks = await computerDoctor({
@@ -17,9 +18,9 @@ test('status reads the product configuration without exposing a private key', as
   const status = await computerStatus({
     paths: { root: '/tmp/luoshu', state: '/tmp/luoshu/state', versions: '/tmp/luoshu/versions', current: '/tmp/luoshu/current', executable: '/tmp/bin/luoshu-computer', service: '/tmp/service' },
     readConfig: async () => ({ worker_id: 'worker_1', url: 'https://luoshu.test', name: 'desk', capacity: 1 }),
-    report:{protocol_version:10,report_revision:1,platform:{os:'linux',arch:'x64',computer_version:'0.1.1'},software:[],agents:[],services:[],git_credentials:[]},
+    report:{protocol_version:10,report_revision:1,platform:{os:'linux',arch:'x64',computer_version:COMPUTER_VERSION},software:[],agents:[],services:[],git_credentials:[]},
   });
-  expect(status).toEqual(expect.objectContaining({ version: '0.1.1', worker_id: 'worker_1', server: 'https://luoshu.test', assistant_engines: [] }));
+  expect(status).toEqual(expect.objectContaining({ version: COMPUTER_VERSION, worker_id: 'worker_1', server: 'https://luoshu.test', assistant_engines: [] }));
   expect(JSON.stringify(status)).not.toContain('private');
 });
 
@@ -27,7 +28,7 @@ test('doctor reports Agents from the current environment report', async () => {
   const checks = await computerDoctor({
     paths: { root: '/tmp/luoshu', state: '/tmp/luoshu/state', versions: '/tmp/luoshu/versions', current: '/tmp/luoshu/current', executable: '/tmp/bin/luoshu-computer', service: '/tmp/service' },
     serviceState: 'running', fetchImpl: async () => new Response('', { status: 200 }),
-    report:{protocol_version:10,report_revision:1,platform:{os:'linux',arch:'x64',computer_version:'0.1.1'},software:[{id:'codex',version:'1.2.3',detected:true}],agents:[{id:'codex',version:'1.2.3',detected:true},{id:'opencode',version:null,detected:false}],services:[],git_credentials:[]},
+    report:{protocol_version:10,report_revision:1,platform:{os:'linux',arch:'x64',computer_version:COMPUTER_VERSION},software:[{id:'codex',version:'1.2.3',detected:true}],agents:[{id:'codex',version:'1.2.3',detected:true},{id:'opencode',version:null,detected:false}],services:[],git_credentials:[]},
   });
   expect(checks).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'agents', status: 'ok', message: '至少检测到一个 Agent' })]));
 });

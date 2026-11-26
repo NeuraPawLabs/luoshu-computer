@@ -1,6 +1,6 @@
 # Release procedure
 
-Computer versions are independent of Core. The first public version is **0.1.0**, current source wire protocol **10**, packaged for Linux x64 with systemd 254+ and cgroup v2.
+Computer versions are independent of Core. Computer **0.2.0** uses device protocol **v10** and targets Linux x64 with systemd 254+ and cgroup v2.
 
 ## One-time signing configuration
 
@@ -27,8 +27,8 @@ No TLS certificate or manually created GitHub token is required. Actions uses it
 
    ```sh
    git push origin main
-   git tag v0.1.1
-   git push origin v0.1.1
+   git tag v0.2.0
+   git push origin v0.2.0
    ```
 
    Use the current version for later releases. If an unpublished local tag already exists, verify it points at the release commit before pushing. Never reassign a published tag or replace an existing Release's assets.
@@ -48,6 +48,16 @@ luoshu-computer update
 The installer needs Linux x64, curl, OpenSSL with Ed25519 support, Python 3, tar and flock. It verifies the exact manifest bytes with the embedded public key **before downloading the archive**. It then checks protocol, platform, tag, digest, size and archive paths before activating the installed version. Verification failure preserves the old version and device identity.
 
 The verified repository and public key are saved in local `release-source.json`; setup copies them into local device configuration without sending them to Core. CLI and daemon updates use GitHub's latest formal release and repeat signature and archive checks. Downloads accept only HTTPS redirects to official GitHub release-asset domains. Unsigned releases are rejected, and active work defers updates.
+
+Existing devices on v8 or v9 must use the v10 installer after the signed `v0.2.0` Release is available. The old `luoshu-computer update` rejects a different protocol. With the Core upgraded to v10 and no active work left on the device, install under the same OS user and restart the existing service:
+
+```sh
+curl -fsSL https://github.com/NeuraPawLabs/luoshu-computer/releases/download/v0.2.0/install.sh | LUOSHU_RELEASE_TAG=v0.2.0 sh
+systemctl --user restart luoshu-computer.service
+luoshu-computer status
+```
+
+Skip `setup` for an already paired device. The installer replaces the executable and preserves its local `state` directory, including the pairing identity and configuration.
 
 Custom static HTTPS feeds remain supported via `setup --release-url URL --release-key /trusted/public.pem`. A public key downloaded beside a release does not establish trust; the local pinned key is authoritative. Key rotation requires an explicit local change to that trust setting, rather than a manifest instructing clients to trust a different key.
 
